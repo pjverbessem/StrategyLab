@@ -1,0 +1,870 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Strategy Lab — AI-Powered Crypto Trading</title>
+  <meta name="description" content="AI-powered crypto strategy builder with live backtesting and Kraken trading bot">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.17/codemirror.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.17/theme/dracula.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.17/codemirror.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.17/mode/python/python.min.js"></script>
+  <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="style.css?v=21">
+</head>
+
+<body>
+  <div class="app-shell">
+
+    <!-- Nav -->
+    <nav class="nav">
+      <div class="nav-brand">
+        <div class="brand-icon">SL</div>
+        <span>Strategy Lab</span>
+      </div>
+      <div class="nav-tabs" role="tablist">
+        <button class="tab-btn active" data-panel="creator" role="tab" id="tab-creator-btn">Creator</button>
+        <button class="tab-btn" data-panel="library" role="tab" id="tab-library-btn">Library</button>
+        <button class="tab-btn" data-panel="bot" role="tab" id="tab-bot-btn">
+          <span class="bot-tab-label">Bot</span>
+          <span class="bot-tab-dot" id="botTabDot" style="display:none"></span>
+        </button>
+        <button class="tab-btn" data-panel="sources" role="tab">Data Sources</button>
+        <button class="tab-btn" data-panel="backing" role="tab">Backtesting</button>
+      </div>
+      <div class="nav-right">
+        <div class="live-ticker" id="liveTicker">
+          <div class="ticker-item" data-pair="ARBUSD">ARB <span class="ticker-price" id="tick-ARBUSD">…</span></div>
+          <div class="ticker-item" data-pair="OPUSD">OP <span class="ticker-price" id="tick-OPUSD">…</span></div>
+          <div class="ticker-item" data-pair="STRKUSD">STRK <span class="ticker-price" id="tick-STRKUSD">…</span></div>
+          <div class="ticker-item" data-pair="ZKUSD">ZK <span class="ticker-price" id="tick-ZKUSD">…</span></div>
+        </div>
+        <div class="sys-status">
+          <div class="status-dot" id="statusDot"></div>
+          <span id="statusLabel">Live</span>
+        </div>
+        <div class="kraken-status" id="krakenStatus" title="Kraken API connection">
+          <span class="kraken-icon">🔗</span>
+          <span class="kraken-label" id="krakenLabel">Kraken</span>
+        </div>
+      </div>
+    </nav>
+
+    <!-- ══ CREATOR PANEL ══════════════════════════════════════════ -->
+    <div class="panel active" id="panel-creator" role="tabpanel">
+      <!-- ── CREATOR TOPBAR ── -->
+      <div class="creator-topbar">
+        <!-- Left: strategy name pill + actions -->
+        <div class="topbar-left">
+          <div class="strat-name-pill" id="stratNamePill">
+            <svg width="9" height="9" viewBox="0 0 12 12" fill="none">
+              <path d="M2 10V4l4-2 4 2v6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"
+                stroke-linejoin="round" />
+              <rect x="4" y="6" width="4" height="4" rx=".5" stroke="currentColor" stroke-width="1.2" />
+            </svg>
+            <span id="stratNameLabel">New Strategy</span>
+          </div>
+          <div class="topbar-sep"></div>
+          <button class="btn-topbar" id="newStratBtn" title="Start a fresh strategy">
+            <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
+              <path d="M6 1v10M1 6h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+            </svg>
+            New
+          </button>
+          <button class="btn-topbar" id="importStratBtn" title="Load from Library">
+            <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
+              <path d="M2 9h8M6 1v7M3 5l3 3 3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+                stroke-linejoin="round" />
+            </svg>
+            Import
+          </button>
+          <button class="btn-topbar accent" id="saveStratTopbarBtn" title="Save to Library" style="display:none">
+            <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
+              <path d="M2 10h8M2 2h6l2 2v6H2V2zM4 7h4v3H4V7z" stroke="currentColor" stroke-width="1.3"
+                stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+            Save
+          </button>
+        </div>
+
+        <!-- Right: backtest controls inline -->
+        <div class="topbar-controls">
+          <div class="ctrl-group">
+            <label class="ctrl-label">Pair</label>
+            <select class="ctrl-select-inline" id="creatorPair">
+              <option value="">Loading…</option>
+            </select>
+          </div>
+          <div class="ctrl-sep"></div>
+          <div class="ctrl-group">
+            <label class="ctrl-label">From</label>
+            <input type="date" class="ctrl-date-inline" id="btFrom">
+          </div>
+          <div class="ctrl-group">
+            <label class="ctrl-label">To</label>
+            <input type="date" class="ctrl-date-inline" id="btTo">
+          </div>
+          <div class="ctrl-group">
+            <label class="ctrl-label">Interval</label>
+            <select class="ctrl-select-inline sm" id="btInterval">
+              <option value="1D">1D</option>
+              <option value="4H">4H</option>
+              <option value="1H">1H</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── MAIN 3-COLUMN AREA: Chat | Code | Results ── -->
+      <div class="creator-top">
+
+        <!-- COL 1: AI Strategy Builder (Chat) -->
+        <div class="creator-col col-chat">
+          <div class="col-header">
+            <span class="col-title">AI Strategy Builder</span>
+          </div>
+
+          <div class="chat-messages" id="chatMessages">
+            <div class="chat-msg system">
+              <div class="chat-bubble">
+                <p>Hi — I'm your AI strategy builder. Describe a trading strategy in plain English, or <strong>attach a
+                    chart screenshot</strong> for pattern analysis.</p>
+                <p style="margin-top:6px;opacity:.5;font-size:11px">Try: <em>"RSI mean-reversion on ARB/USD"</em></p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Image preview -->
+          <div class="image-preview-bar" id="imagePreviewBar" style="display:none">
+            <div class="image-preview-inner">
+              <img id="imagePreviewThumb" src="" alt="Chart preview" class="image-thumb">
+              <div class="image-preview-info">
+                <span id="imagePreviewName" class="image-name">chart.png</span>
+                <span class="image-hint">AI will analyze this chart</span>
+              </div>
+              <button class="btn-remove-image" id="removeImageBtn" title="Remove image">✕</button>
+            </div>
+          </div>
+
+          <!-- Chat input bar -->
+          <div class="chat-input-bar">
+            <input type="file" id="imageUploadInput" accept="image/*" style="display:none">
+            <div class="chat-input-row">
+              <textarea id="chatInput" class="chat-input" rows="2" placeholder="Describe your strategy…"></textarea>
+            </div>
+            <div class="chat-action-row">
+              <button class="btn-attach" id="attachImageBtn" title="Attach chart image">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                  stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="3" y="3" width="18" height="18" rx="2" />
+                  <circle cx="8.5" cy="8.5" r="1.5" />
+                  <polyline points="21 15 16 10 5 21" />
+                </svg>
+                <span>Chart</span>
+              </button>
+              <button class="btn-generate" id="chatSend" title="Generate strategy (Ctrl+Enter)">
+                Generate
+                <svg width="11" height="11" viewBox="0 0 16 16" fill="none">
+                  <path d="M2 8h12M10 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+                    stroke-linejoin="round" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div><!-- /col-chat -->
+
+        <!-- drag handle 1↔2 -->
+        <div class="col-resizer" id="resizer-col2" title="Drag to resize"></div>
+
+        <!-- COL 2: Strategy Code -->
+        <div class="creator-col col-code">
+          <div class="col-header">
+            <span class="col-title">Strategy Code</span>
+            <button class="btn-icon" id="saveChatStratBtn" title="Save to library" style="display:none">
+              <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
+                <path d="M2 10h8M2 2h6l2 2v6H2V2zM4 7h4v3H4V7z" stroke="currentColor" stroke-width="1.3"
+                  stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+              Save
+            </button>
+          </div>
+
+          <div class="col-code-inner" id="chatOutput">
+            <div class="code-empty-state" id="codeEmptyState">
+              <svg width="28" height="28" viewBox="0 0 40 40" fill="none">
+                <path d="M12 16l-6 4 6 4M28 16l6 4-6 4M22 12l-4 16" stroke="#2a2a2a" stroke-width="2.5"
+                  stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+              <span>Generate a strategy to see the code</span>
+            </div>
+
+            <div class="code-section" id="code-section-algo" style="display:none">
+              <div class="code-section-label">Algorithm <span class="code-section-tag">Logic</span></div>
+              <div class="code-algo-body" id="out-algo"></div>
+            </div>
+
+            <div class="code-section" id="code-section-py" style="display:none">
+              <div class="code-section-label">
+                Python Code <span class="code-section-tag">Strategy</span>
+                <div style="display:flex;gap:5px;align-items:center">
+                  <button class="btn-update-code" id="regenCodeBtn" title="Regenerate from scratch">
+                    <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
+                      <path d="M10 6A4 4 0 112 6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" />
+                      <path d="M10 2v4H6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"
+                        stroke-linejoin="round" />
+                    </svg>
+                    Regen
+                  </button>
+                  <button class="btn-update-code" id="updateCodeBtn" title="Save manual edits">
+                    <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
+                      <path d="M9 1l2 2-6 6H3V7l6-6z" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"
+                        stroke-linejoin="round" />
+                    </svg>
+                    Update
+                  </button>
+                </div>
+              </div>
+              <div id="codeEditor" class="code-editor-wrap"></div>
+              <pre id="codeBlock" style="display:none"></pre>
+            </div>
+
+            <div class="code-section" id="code-section-params" style="display:none">
+              <div class="code-section-label">Parameters <span class="code-section-tag">Config</span></div>
+              <div id="out-params"></div>
+            </div>
+          </div>
+        </div><!-- /col-code -->
+
+        <!-- drag handle 2↔3 -->
+        <div class="col-resizer" id="resizer-col3" title="Drag to resize"></div>
+
+        <!-- COL 3: Strategy Tester Results -->
+        <div class="creator-col col-results">
+          <!-- Results header: tabs + run button -->
+          <div class="col-header results-header">
+            <div class="bt-tabs">
+              <button class="bt-tab active" data-bt-tab="overview" id="bttab-overview">Overview</button>
+              <button class="bt-tab" data-bt-tab="perfsummary" id="bttab-perfsummary">Performance</button>
+              <button class="bt-tab" data-bt-tab="trades" id="bttab-trades">
+                Trades <span id="tradeCount" class="bt-trade-badge"></span>
+              </button>
+              <button class="bt-tab" data-bt-tab="properties" id="bttab-properties">Properties</button>
+            </div>
+            <button class="btn-run" id="runBacktestBtn">
+              <svg width="9" height="9" viewBox="0 0 14 14" fill="none">
+                <path d="M3 2l9 5-9 5V2z" fill="currentColor" />
+              </svg>
+              Run
+            </button>
+          </div>
+
+          <!-- Status line -->
+          <div class="results-status" id="btStatusLabel">Run a backtest to see performance</div>
+
+          <!-- Tab panels -->
+          <!-- OVERVIEW -->
+          <div class="bt-tab-panel active" id="bt-panel-overview">
+            <div class="bt-overview-metrics">
+              <div class="bt-ov-metric">
+                <div class="bt-ov-label">Net P&amp;L</div>
+                <div class="bt-ov-value" id="m-return">—</div>
+                <div class="bt-ov-sub" id="m-return-sub"></div>
+              </div>
+              <div class="bt-ov-metric">
+                <div class="bt-ov-label">Max Drawdown</div>
+                <div class="bt-ov-value neg" id="m-drawdown">—</div>
+                <div class="bt-ov-bar-wrap">
+                  <div class="bt-ov-bar neg" id="m-drawdown-bar" style="width:0%"></div>
+                </div>
+              </div>
+              <div class="bt-ov-metric">
+                <div class="bt-ov-label">Profit Factor</div>
+                <div class="bt-ov-value" id="m-sharpe">—</div>
+                <div class="bt-ov-sub" id="m-avgtrade-sub"></div>
+              </div>
+              <div class="bt-ov-metric">
+                <div class="bt-ov-label">Win Rate</div>
+                <div class="bt-ov-value" id="m-winrate">—</div>
+                <div class="bt-ov-bar-wrap">
+                  <div class="bt-ov-bar pos" id="m-winrate-bar" style="width:0%"></div>
+                </div>
+              </div>
+              <div class="bt-ov-metric">
+                <div class="bt-ov-label">Trades</div>
+                <div class="bt-ov-value" id="m-trades">—</div>
+                <div class="bt-ov-sub">
+                  <span class="pos" id="m-winning-trades">—</span> W &middot;
+                  <span class="neg" id="m-losing-trades">—</span> L
+                </div>
+              </div>
+            </div>
+
+            <div class="bt-equity-zone">
+              <div class="bt-chart-empty" id="equityEmptyState">
+                <svg width="20" height="20" viewBox="0 0 40 40" fill="none">
+                  <polyline points="2,32 10,20 18,26 28,12 38,16" stroke="#2a2a2a" stroke-width="2.5" fill="none"
+                    stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+                <span>Equity curve</span>
+              </div>
+              <div id="resultChartWrap" style="display:none;width:100%;height:100%">
+                <div id="resultChart" style="width:100%;height:100%"></div>
+              </div>
+            </div>
+
+            <div class="bt-monthly-strip">
+              <div class="bt-monthly-strip-label">Monthly</div>
+              <div id="monthlyTable" class="bt-monthly-scroll">
+                <div class="bt-monthly-empty">—</div>
+              </div>
+            </div>
+          </div><!-- /overview -->
+
+          <!-- PERFORMANCE SUMMARY -->
+          <div class="bt-tab-panel" id="bt-panel-perfsummary">
+            <div class="bt-perf-grid">
+              <div class="bt-perf-col">
+                <div class="bt-perf-col-header">All Trades</div>
+                <div id="perfAllStats" class="bt-perf-stats">
+                  <div class="bt-perf-empty">No data</div>
+                </div>
+              </div>
+              <div class="bt-perf-col">
+                <div class="bt-perf-col-header">
+                  <div class="bt-perf-dot long"></div> Long
+                </div>
+                <div id="perfLongStats" class="bt-perf-stats">
+                  <div class="bt-perf-empty">No data</div>
+                </div>
+              </div>
+              <div class="bt-perf-col">
+                <div class="bt-perf-col-header">
+                  <div class="bt-perf-dot short"></div> Short
+                </div>
+                <div id="perfShortStats" class="bt-perf-stats">
+                  <div class="bt-perf-empty">No data</div>
+                </div>
+              </div>
+            </div>
+          </div><!-- /perfsummary -->
+
+          <!-- LIST OF TRADES -->
+          <div class="bt-tab-panel" id="bt-panel-trades">
+            <div class="bt-trade-table-wrap">
+              <table class="bt-trade-table">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Date</th>
+                    <th>Type</th>
+                    <th>Entry</th>
+                    <th>Exit</th>
+                    <th>P&amp;L %</th>
+                    <th>Cum.</th>
+                    <th>Run-up</th>
+                    <th>DD</th>
+                  </tr>
+                </thead>
+                <tbody id="tradeRegister">
+                  <tr>
+                    <td colspan="9" class="bt-register-empty">Run a backtest to see trades</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div><!-- /trades -->
+
+          <!-- PROPERTIES -->
+          <div class="bt-tab-panel" id="bt-panel-properties">
+            <div class="bt-props-grid">
+              <div class="bt-props-section">
+                <div class="bt-props-title">Backtest Settings</div>
+                <div class="bt-props-row"><label class="bt-props-label">Initial Capital</label>
+                  <div class="bt-props-value">$10,000</div>
+                </div>
+                <div class="bt-props-row"><label class="bt-props-label">Order Size</label>
+                  <div class="bt-props-value">100% equity</div>
+                </div>
+                <div class="bt-props-row"><label class="bt-props-label">Commission</label>
+                  <div class="bt-props-value">0%</div>
+                </div>
+                <div class="bt-props-row"><label class="bt-props-label">Pyramiding</label>
+                  <div class="bt-props-value">Off</div>
+                </div>
+              </div>
+              <div class="bt-props-section">
+                <div class="bt-props-title">Strategy Parameters</div>
+                <div id="propsParamsBody">
+                  <div class="bt-perf-empty">Load a strategy first</div>
+                </div>
+              </div>
+            </div>
+          </div><!-- /properties -->
+
+        </div><!-- /col-results -->
+
+      </div><!-- /creator-top -->
+
+      <!-- ── BOTTOM: Price Chart (full width, resizable) ── -->
+      <div class="row-resizer" id="resizer-chart" title="Drag to resize chart"></div>
+      <div class="creator-chart-zone" id="creatorChartZone">
+        <div class="chart-zone-header">
+          <span class="chart-zone-label" id="chartZoneLabel">Price Chart</span>
+          <span class="chart-zone-hint" id="chartZoneHint">Run a backtest to see trade entries &amp; exits</span>
+        </div>
+        <div class="chart-zone-body">
+          <div class="bt-chart-empty" id="chartEmptyState">
+            <svg width="28" height="28" viewBox="0 0 48 48" fill="none">
+              <rect x="4" y="28" width="7" height="16" rx="1.5" fill="#1e1e22" />
+              <rect x="15" y="18" width="7" height="26" rx="1.5" fill="#1e1e22" />
+              <rect x="26" y="22" width="7" height="22" rx="1.5" fill="#1e1e22" />
+              <rect x="37" y="10" width="7" height="34" rx="1.5" fill="#1e1e22" />
+            </svg>
+            <span>Run a backtest to see candlesticks with trade entries &amp; exits</span>
+          </div>
+          <div id="priceChartWrap" style="display:none;width:100%;height:100%">
+            <div id="priceChart" style="width:100%;height:100%"></div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /panel-creator -->
+
+    <!-- ══ LIBRARY PANEL ══════════════════════════════════════════ -->
+    <div class="panel" id="panel-library" role="tabpanel">
+      <div class="list-page-wrap">
+        <div class="list-page">
+          <div class="list-page-header">
+            <h1 class="list-page-title">Strategy Library</h1>
+            <div class="list-search-wrap">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                <circle cx="7" cy="7" r="4.5" stroke="#71717A" stroke-width="1.5" />
+                <path d="M10.5 10.5L13 13" stroke="#71717A" stroke-width="1.5" stroke-linecap="round" />
+              </svg>
+              <input type="text" class="list-search" id="librarySearch" placeholder="Search saved strategies…">
+            </div>
+            <button class="btn-outline" id="libraryRefreshBtn">↺ Refresh</button>
+          </div>
+          <div id="libraryEmpty" class="lib-empty" style="display:none">
+            <div class="lib-empty-icon">📁</div>
+            <div class="lib-empty-title">No saved strategies yet</div>
+            <div class="lib-empty-sub">Go to Creator, build a strategy with the AI, then click <strong>Save</strong> to
+              store it here.</div>
+          </div>
+          <div class="lib-grid" id="libraryGrid"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ BOT PANEL ══════════════════════════════════════════════ -->
+    <div class="panel" id="panel-bot" role="tabpanel">
+      <div class="bot-layout">
+        <div class="bot-config-col">
+          <div class="bot-config-card">
+            <div class="bot-config-header">
+              <div class="bot-config-title">🤖 Trading Bot</div>
+              <div class="bot-config-sub">Connect a strategy to live Kraken trading</div>
+            </div>
+            <div class="bot-section-label">Kraken Connection</div>
+            <div class="kraken-conn-card" id="krakenConnCard">
+              <div class="kraken-conn-icon">🔗</div>
+              <div class="kraken-conn-info">
+                <div class="kraken-conn-status" id="krakenConnStatus">Checking…</div>
+                <div class="kraken-conn-hint" id="krakenConnHint">Set <code>KRAKEN_API_KEY</code> and
+                  <code>KRAKEN_API_SECRET</code> env vars, then restart the server.
+                </div>
+              </div>
+              <button class="btn-sm" id="krakenCheckBtn">Check</button>
+            </div>
+            <div class="bot-section-label" style="margin-top:18px">Account Balance <button class="btn-xs"
+                id="balanceRefreshBtn">↺</button></div>
+            <div class="balance-grid" id="balanceGrid">
+              <div class="balance-empty">Connect Kraken to see balances</div>
+            </div>
+            <div class="bot-section-label" style="margin-top:18px">Strategy</div>
+            <select class="ctrl-select" id="botStrategySelect">
+              <option value="">— Select saved strategy —</option>
+            </select>
+            <div class="bot-section-label" style="margin-top:14px">Settings</div>
+            <div class="bot-settings-grid">
+              <div class="bot-setting">
+                <label class="bot-setting-label">Pair</label>
+                <select class="ctrl-select" id="botPairSelect">
+                  <option value="ARBUSD">ARB/USD</option>
+                  <option value="OPUSD">OP/USD</option>
+                  <option value="STRKUSD">STRK/USD</option>
+                  <option value="ZKUSD">ZK/USD</option>
+                </select>
+              </div>
+              <div class="bot-setting">
+                <label class="bot-setting-label">Interval</label>
+                <select class="ctrl-select" id="botIntervalSelect">
+                  <option value="1440">1 Day</option>
+                  <option value="240">4 Hours</option>
+                  <option value="60">1 Hour</option>
+                  <option value="15">15 Min</option>
+                </select>
+              </div>
+              <div class="bot-setting">
+                <label class="bot-setting-label">Allocation (USD)</label>
+                <input type="number" class="ctrl-number" id="botAllocation" value="10" min="1" step="1">
+              </div>
+            </div>
+            <div class="bot-action-row">
+              <button class="btn-bot-start" id="botStartBtn">▶ Start Bot</button>
+              <button class="btn-bot-stop" id="botStopBtn" disabled>■ Stop Bot</button>
+            </div>
+            <div class="bot-warning">⚠️ <strong>Live trading uses real funds.</strong> Only allocate money you can
+              afford to lose. Always test with small amounts first.</div>
+          </div>
+        </div>
+
+        <div class="bot-status-col">
+          <div class="bot-status-card" id="botStatusCard">
+            <div class="bot-status-header">
+              <div class="bot-status-indicator" id="botStatusIndicator">
+                <div class="bot-indicator-dot inactive" id="botIndicatorDot"></div>
+                <span id="botStatusText">Bot Inactive</span>
+              </div>
+              <div class="bot-uptime" id="botUptime"></div>
+            </div>
+            <div class="bot-metrics-row" id="botMetricsRow">
+              <div class="bot-metric">
+                <div class="bot-metric-label">Signal</div>
+                <div class="bot-metric-value" id="botSignal">—</div>
+              </div>
+              <div class="bot-metric">
+                <div class="bot-metric-label">Position</div>
+                <div class="bot-metric-value" id="botPosition">Flat</div>
+              </div>
+              <div class="bot-metric">
+                <div class="bot-metric-label">Entry Price</div>
+                <div class="bot-metric-value" id="botEntryPrice">—</div>
+              </div>
+              <div class="bot-metric">
+                <div class="bot-metric-label">Live Price</div>
+                <div class="bot-metric-value" id="botLivePrice">—</div>
+              </div>
+              <div class="bot-metric">
+                <div class="bot-metric-label">Unrealized P&amp;L</div>
+                <div class="bot-metric-value" id="botUnrealizedPnl">—</div>
+              </div>
+              <div class="bot-metric">
+                <div class="bot-metric-label">Realized P&amp;L</div>
+                <div class="bot-metric-value" id="botRealizedPnl">—</div>
+              </div>
+            </div>
+          </div>
+          <div class="bot-log-card">
+            <div class="bot-log-header">
+              <span>Activity Log</span>
+              <button class="btn-xs" id="clearLogBtn">Clear</button>
+            </div>
+            <div class="bot-log-body" id="botLogBody">
+              <div class="bot-log-empty">Start the bot to see activity here</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ DATA SOURCES PANEL ══════════════════════════════════════ -->
+    <div class="panel" id="panel-sources" role="tabpanel">
+      <div class="list-page-wrap">
+        <div class="list-page">
+          <div class="list-page-header">
+            <h1 class="list-page-title">Data Sources</h1>
+            <div class="list-search-wrap">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                <circle cx="7" cy="7" r="4.5" stroke="#71717A" stroke-width="1.5" />
+                <path d="M10.5 10.5L13 13" stroke="#71717A" stroke-width="1.5" stroke-linecap="round" />
+              </svg>
+              <input type="text" class="list-search" id="sourceSearch" placeholder="Search for data source">
+            </div>
+          </div>
+          <div class="source-list" id="sourceList">
+            <div class="source-card">
+              <div class="source-icon">K</div>
+              <div class="source-info">
+                <div class="source-name">Kraken</div>
+                <div class="source-desc">OHLCVT price data for 300+ crypto pairs. Historical data from 2018. Minute,
+                  hourly and daily resolution.</div>
+              </div>
+              <div class="source-status connected"><span class="status-dot-inline"></span>Connected</div>
+            </div>
+            <div class="source-card">
+              <div class="source-icon">D</div>
+              <div class="source-info">
+                <div class="source-name">DefiLlama</div>
+                <div class="source-desc">TVL, token unlock schedules, protocol metrics and emissions data across all
+                  major chains.</div>
+              </div>
+              <div class="source-status connected"><span class="status-dot-inline"></span>Connected</div>
+            </div>
+            <div class="source-card">
+              <div class="source-icon">N</div>
+              <div class="source-info">
+                <div class="source-name">News Sentinel</div>
+                <div class="source-desc">Real-time news with VADER sentiment scoring. 300 coins watched. Root-cause
+                  event filtering. 60-second polling.</div>
+              </div>
+              <div class="source-status active"><span class="status-dot-inline"></span>Live</div>
+            </div>
+            <div class="source-card">
+              <div class="source-icon">G</div>
+              <div class="source-info">
+                <div class="source-name">Kraken Live Ticker</div>
+                <div class="source-desc">Real-time bid/ask/last/volume prices from Kraken public API. Feeds the live
+                  ticker and bot price engine. No API key required.</div>
+              </div>
+              <div class="source-status active"><span class="status-dot-inline"></span>Live</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ BACKTESTING PANEL ═══════════════════════════════════════ -->
+    <div class="panel" id="panel-backing" role="tabpanel">
+      <div class="list-page-wrap">
+        <div class="list-page">
+          <div class="list-page-header">
+            <h1 class="list-page-title">Strategy Editor</h1>
+            <div class="list-search-wrap">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                <circle cx="7" cy="7" r="4.5" stroke="#71717A" stroke-width="1.5" />
+                <path d="M10.5 10.5L13 13" stroke="#71717A" stroke-width="1.5" stroke-linecap="round" />
+              </svg>
+              <input type="text" class="list-search" id="stratSearchBacking" placeholder="Search for strategy">
+            </div>
+            <button class="btn-outline" id="newStrategyBtn">+ New Strategy</button>
+          </div>
+          <div class="strategy-list" id="strategyList">
+            <div class="strategy-card" data-strategy="rsi">
+              <div class="strat-header"><span class="strat-name">RSI Divergence Strategy</span><span
+                  class="strat-coin">ARB/USD</span></div>
+              <div class="strat-desc">Goes long when RSI &lt; 30, short when RSI &gt; 70. Classic mean-reversion.
+                14-period RSI on daily candles.</div>
+              <div class="strat-meta">
+                <div class="strat-metric"><span>Return</span><strong>—</strong></div>
+                <div class="strat-metric"><span>Sharpe</span><strong>—</strong></div>
+                <div class="strat-metric"><span>Drawdown</span><strong>—</strong></div>
+                <div class="strat-metric"><span>Win Rate</span><strong>—</strong></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /app-shell -->
+
+  <!-- Save Strategy Modal -->
+  <div class="modal-overlay" id="saveStratModal" style="display:none">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title">💾 Save Strategy</div>
+        <button class="modal-close" id="saveModalClose">✕</button>
+      </div>
+      <div class="modal-body">
+        <label class="modal-label">Strategy Name</label>
+        <input type="text" class="modal-input" id="saveStratName" placeholder="e.g. RSI Breakout v2">
+        <label class="modal-label" style="margin-top:12px">Description (optional)</label>
+        <textarea class="modal-textarea" id="saveStratDesc" rows="3"
+          placeholder="Briefly describe the strategy logic…"></textarea>
+        <label class="modal-label" style="margin-top:12px">Tags (comma-separated)</label>
+        <input type="text" class="modal-input" id="saveStratTags" placeholder="e.g. rsi, mean-reversion, daily">
+      </div>
+      <div class="modal-footer">
+        <button class="btn-outline" id="saveModalCancel">Cancel</button>
+        <button class="btn-run" id="saveModalSave">Save Strategy</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js?v=3"></script>
+  <script src="resize.js?v=3"></script>
+  <script src="backtest.js?v=3"></script>
+  <script src="creator.js?v=3"></script>
+  <script src="library.js?v=3"></script>
+  <script src="bot.js?v=3"></script>
+
+  <!-- Particle canvas -->
+  <canvas id="particleCanvas" style="position:fixed;inset:0;pointer-events:none;z-index:0;opacity:.3"></canvas>
+  <script>
+    (function () {
+      const c = document.getElementById('particleCanvas');
+      const ctx = c.getContext('2d');
+      let W, H, dots = [];
+      function resize() { W = c.width = window.innerWidth; H = c.height = window.innerHeight; }
+      function mkDot() { return { x: Math.random() * W, y: Math.random() * H, r: Math.random() * .8 + .2, vx: (Math.random() - .5) * .1, vy: (Math.random() - .5) * .1, o: Math.random() * .35 + .08 }; }
+      function init() { resize(); dots = []; for (let i = 0; i < 80; i++)dots.push(mkDot()); }
+      function draw() {
+        ctx.clearRect(0, 0, W, H);
+        dots.forEach(d => {
+          d.x += d.vx; d.y += d.vy;
+          if (d.x < 0) d.x = W; if (d.x > W) d.x = 0;
+          if (d.y < 0) d.y = H; if (d.y > H) d.y = 0;
+          ctx.beginPath(); ctx.arc(d.x, d.y, d.r, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(255,255,255,${d.o})`; ctx.fill();
+        });
+        requestAnimationFrame(draw);
+      }
+      window.addEventListener('resize', init);
+      init(); draw();
+    })();
+  </script>
+
+  <!-- ── Creator topbar button wiring (runs last – all window.* are ready) ── -->
+  <script>
+    (function () {
+      // ── New Strategy button (double-tap to confirm) ──────────────────────────
+      var newBtn = document.getElementById('newStratBtn');
+      if (newBtn) {
+        var _pending = false, _timer = null;
+        newBtn.addEventListener('click', function () {
+          if (!_pending) {
+            _pending = true;
+            newBtn.setAttribute('data-orig', newBtn.textContent);
+            newBtn.textContent = 'Sure?';
+            newBtn.style.cssText += ';color:#EF4444;border-color:rgba(239,68,68,.5)';
+            _timer = setTimeout(function () {
+              _pending = false;
+              newBtn.textContent = 'New';
+              newBtn.style.color = '';
+              newBtn.style.borderColor = '';
+            }, 2500);
+          } else {
+            clearTimeout(_timer);
+            _pending = false;
+            newBtn.textContent = 'New';
+            newBtn.style.color = '';
+            newBtn.style.borderColor = '';
+            if (typeof window.newStrategy === 'function') window.newStrategy();
+          }
+        });
+      }
+
+      // ── Import Strategy button ───────────────────────────────────────────────
+      var importBtn = document.getElementById('importStratBtn');
+      if (importBtn) {
+        importBtn.addEventListener('click', function () {
+          if (typeof window.loadLibrary === 'function') {
+            window.loadLibrary().then(function () {
+              if (typeof window.showImportPicker === 'function') window.showImportPicker();
+            });
+          }
+        });
+      }
+
+      // ── Save Strategy button (topbar) ────────────────────────────────────────
+      var saveTopbarBtn = document.getElementById('saveStratTopbarBtn');
+      if (saveTopbarBtn) {
+        saveTopbarBtn.addEventListener('click', function () {
+          var modal = document.getElementById('saveStratModal');
+          if (!modal) return;
+          var nm = document.getElementById('saveStratName');
+          var currentName = (document.getElementById('stratNameLabel') || {}).textContent || '';
+          currentName = currentName.trim();
+          if (nm) nm.value = (currentName === 'New Strategy' || currentName === 'Unsaved Strategy') ? '' : currentName;
+          var dd = document.getElementById('saveStratDesc');
+          var tg = document.getElementById('saveStratTags');
+          if (dd) dd.value = '';
+          if (tg) tg.value = '';
+          modal.style.display = 'flex';
+          setTimeout(function () { if (nm) nm.focus(); }, 60);
+        });
+      }
+    })();
+  </script>
+
+  <!-- ── CodeMirror Python editor init (runs last) ────────────────────────── -->
+  <script>
+    (function initCodeEditor() {
+      var wrap = document.getElementById('codeEditor');
+      if (!wrap || typeof CodeMirror === 'undefined') return;
+
+      // Create editor
+      var editor = CodeMirror(wrap, {
+        value: '',
+        mode: 'python',
+        theme: 'default',
+        lineNumbers: true,
+        indentUnit: 4,
+        tabSize: 4,
+        indentWithTabs: false,
+        lineWrapping: false,
+        autofocus: false,
+        extraKeys: {
+          Tab: function (cm) {
+            if (cm.somethingSelected()) { cm.indentSelection('add'); }
+            else { cm.replaceSelection('    ', 'end'); }
+          }
+        }
+      });
+
+      // Expose globally so creator.js / library.js can call editor.setValue()
+      window.creatorEditor = editor;
+
+      // ── Keep editor in sync when AI generates code ────────────────────────
+      // creator.js sets window._lastStrategyCode then dispatches 'strategyGenerated'
+      window.addEventListener('strategyGenerated', function () {
+        var code = window._lastStrategyCode || '';
+        if (editor.getValue() !== code) {
+          editor.setValue(code);
+          editor.clearHistory();
+        }
+      });
+
+      // Fallback: poll _lastStrategyCode every 800ms (catches loadStratToCreator)
+      var _prevCode = '';
+      setInterval(function () {
+        var cur = window._lastStrategyCode || '';
+        if (cur && cur !== _prevCode && cur !== editor.getValue()) {
+          editor.setValue(cur);
+          editor.clearHistory();
+          _prevCode = cur;
+        }
+      }, 800);
+
+      // ── Update button — save editor content back to _lastStrategyCode ─────
+      var updateBtn = document.getElementById('updateCodeBtn');
+      if (updateBtn) {
+        updateBtn.addEventListener('click', function () {
+          var newCode = editor.getValue().trim();
+          if (!newCode) return;
+          window._lastStrategyCode = newCode;
+
+          // Mark pill as unsaved (code was manually edited)
+          if (typeof window.setStrategyName === 'function') {
+            var currentName = (document.getElementById('stratNameLabel') || {}).textContent || '';
+            if (currentName === 'New Strategy') currentName = 'Unsaved Strategy';
+            window.setStrategyName(currentName, false);
+          }
+
+          // Show topbar Save button
+          var saveBtn = document.getElementById('saveStratTopbarBtn');
+          if (saveBtn) saveBtn.style.display = 'flex';
+
+          // Visual feedback on the Update button
+          updateBtn.classList.add('saved');
+          updateBtn.textContent = '✓ Saved';
+          setTimeout(function () {
+            updateBtn.classList.remove('saved');
+            updateBtn.innerHTML = '<svg width="10" height="10" viewBox="0 0 12 12" fill="none"><path d="M9 1l2 2-6 6H3V7l6-6z" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg> Update';
+          }, 1800);
+        });
+      }
+    })();
+  </script>
+
+</body>
+
+</html>

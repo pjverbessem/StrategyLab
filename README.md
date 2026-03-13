@@ -114,3 +114,4 @@ result.plot()
 | 1440    | 1d    | Daily candles      |
 | 10080   | 1w    | Weekly candles     |
 # StrategyLab
+# Startegy-Lab-v2

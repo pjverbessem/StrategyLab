@@ -17,7 +17,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.17/mode/python/python.min.js"></script>
   <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-  <link rel="stylesheet" href="style.css?v=24">
+  <link rel="stylesheet" href="style.css?v=27">
 </head>
 
 <body>
@@ -30,6 +30,7 @@
         <span>Strategy Lab</span>
       </div>
       <div class="nav-tabs" role="tablist">
+        <button class="tab-btn" data-panel="initiator" role="tab" id="tab-initiator-btn">✦ Initiator</button>
         <button class="tab-btn active" data-panel="creator" role="tab" id="tab-creator-btn">Creator</button>
         <button class="tab-btn" data-panel="library" role="tab" id="tab-library-btn">Library</button>
         <button class="tab-btn" data-panel="bot" role="tab" id="tab-bot-btn">
@@ -456,6 +457,107 @@
 
     </div><!-- /panel-creator -->
 
+    <!-- ══ INITIATOR PANEL ════════════════════════════════════════ -->
+    <div class="panel" id="panel-initiator" role="tabpanel">
+      <div class="init-wrap">
+
+        <!-- Ambient glow -->
+        <div class="init-glow init-glow-1"></div>
+        <div class="init-glow init-glow-2"></div>
+
+        <!-- Hero -->
+        <div class="init-hero">
+          <div class="init-badge">✦ Strategy Initiator</div>
+          <h1 class="init-title">What kind of strategy<br>do you want to build?</h1>
+          <p class="init-sub">Describe your idea, choose your data sources and trading pair — the AI will generate and
+            backtest it for you.</p>
+        </div>
+
+        <!-- Prompt box -->
+        <div class="init-prompt-card">
+          <textarea id="initPrompt" class="init-textarea"
+            placeholder="e.g. Go long when Fear &amp; Greed drops below 20 and STRK RSI is oversold. Exit after 5 days or when RSI recovers above 50."
+            rows="3"></textarea>
+          <div class="init-prompt-footer">
+            <span class="init-char-count" id="initCharCount">0 / 500</span>
+          </div>
+        </div>
+
+        <!-- Config row -->
+        <div class="init-config">
+
+          <!-- Data Sources -->
+          <div class="init-section">
+            <div class="init-section-label">Data Sources</div>
+            <div class="init-ds-grid" id="initDsGrid">
+              <label class="init-ds-card checked" data-key="price">
+                <input type="checkbox" value="price" checked>
+                <div class="init-ds-icon">📈</div>
+                <div class="init-ds-name">Price Data</div>
+                <div class="init-ds-sub">OHLCVT · Kraken</div>
+              </label>
+              <label class="init-ds-card" data-key="feargreed">
+                <input type="checkbox" value="feargreed">
+                <div class="init-ds-icon">😱</div>
+                <div class="init-ds-name">Fear &amp; Greed</div>
+                <div class="init-ds-sub">Daily index · alt.me</div>
+              </label>
+              <label class="init-ds-card" data-key="unlocks">
+                <input type="checkbox" value="unlocks">
+                <div class="init-ds-icon">🔓</div>
+                <div class="init-ds-name">Token Unlocks</div>
+                <div class="init-ds-sub">Vesting schedules</div>
+              </label>
+            </div>
+          </div>
+
+          <!-- Pair + dates -->
+          <div class="init-section">
+            <div class="init-section-label">Trading Pair</div>
+            <div class="init-pair-chips" id="initPairChips"><!-- populated by JS --></div>
+          </div>
+
+          <div class="init-section init-section-dates">
+            <div class="init-section-label">Backtest Period</div>
+            <div class="init-dates-row">
+              <div class="init-date-group">
+                <label class="init-date-label">From</label>
+                <input type="date" id="initStart" class="init-date-input">
+              </div>
+              <div class="init-date-sep">→</div>
+              <div class="init-date-group">
+                <label class="init-date-label">To</label>
+                <input type="date" id="initEnd" class="init-date-input">
+              </div>
+            </div>
+          </div>
+
+          <div class="init-section">
+            <div class="init-section-label">Interval</div>
+            <div class="init-interval-group" id="initIntervalGroup">
+              <button class="init-int-btn" data-val="60">1h</button>
+              <button class="init-int-btn" data-val="240">4h</button>
+              <button class="init-int-btn active" data-val="1440">1D</button>
+            </div>
+          </div>
+
+        </div><!-- /init-config -->
+
+        <!-- Launch -->
+        <button class="init-launch-btn" id="initLaunchBtn">
+          <span class="init-launch-text">Launch Strategy</span>
+          <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
+            <path d="M4 10h12M11 5l5 5-5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
+              stroke-linejoin="round" />
+          </svg>
+        </button>
+
+        <p class="init-disclaimer">Strategy code will be generated by Gemini AI and requires backtesting before use. Not
+          financial advice.</p>
+
+      </div><!-- /init-wrap -->
+    </div><!-- /panel-initiator -->
+
     <!-- ══ LIBRARY PANEL ══════════════════════════════════════════ -->
     <div class="panel" id="panel-library" role="tabpanel">
       <div class="list-page-wrap">
@@ -708,12 +810,13 @@
     </div>
   </div>
 
-  <script src="app.js?v=4"></script>
-  <script src="resize.js?v=4"></script>
-  <script src="backtest.js?v=4"></script>
-  <script src="creator.js?v=4"></script>
-  <script src="library.js?v=4"></script>
-  <script src="bot.js?v=4"></script>
+  <script src="app.js?v=5"></script>
+  <script src="resize.js?v=5"></script>
+  <script src="backtest.js?v=5"></script>
+  <script src="creator.js?v=5"></script>
+  <script src="library.js?v=5"></script>
+  <script src="bot.js?v=5"></script>
+  <script src="initiator.js?v=2"></script>
 
   <!-- Particle canvas -->
   <canvas id="particleCanvas" style="position:fixed;inset:0;pointer-events:none;z-index:0;opacity:.3"></canvas>

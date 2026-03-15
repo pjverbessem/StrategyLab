@@ -413,6 +413,11 @@ document.getElementById('libraryRefreshBtn')?.addEventListener('click', loadLibr
 // ── Load library when tab is clicked ─────────────────────────────────────────
 document.querySelector('[data-panel="library"]')?.addEventListener('click', loadLibrary);
 
+// ── Initialise Initiator panel when its tab is clicked ───────────────────────
+document.querySelector('[data-panel="initiator"]')?.addEventListener('click', () => {
+    window.initInitiatorPanel?.();
+});
+
 // ── Expose globally ───────────────────────────────────────────────────────────
 window.loadLibrary = loadLibrary;
 window.deployStratToBot = deployStratToBot;

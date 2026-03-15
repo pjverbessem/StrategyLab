@@ -17,7 +17,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.17/mode/python/python.min.js"></script>
   <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-  <link rel="stylesheet" href="style.css?v=21">
+  <link rel="stylesheet" href="style.css?v=24">
 </head>
 
 <body>
@@ -122,318 +122,337 @@
         </div>
       </div>
 
-      <!-- ── MAIN 3-COLUMN AREA: Chat | Code | Results ── -->
-      <div class="creator-top">
+      <!-- ════════════════════════════════════════════════════════
+           2 × 2 GRID LAYOUT
+           ┌─────────────────────┬─────────────────────┐
+           │  AI Chat & Algorithm│  Price Chart        │  ← top row
+           ├─────────────────────┼─────────────────────┤
+           │  Strategy Code      │  Performance &      │  ← bottom row
+           │                     │  Equity Curve       │
+           └─────────────────────┴─────────────────────┘
+      ════════════════════════════════════════════════════════ -->
+      <div class="creator-grid">
 
-        <!-- COL 1: AI Strategy Builder (Chat) -->
-        <div class="creator-col col-chat">
-          <div class="col-header">
-            <span class="col-title">AI Strategy Builder</span>
-          </div>
+        <!-- ── LEFT COLUMN ── -->
+        <div class="grid-left">
 
-          <div class="chat-messages" id="chatMessages">
-            <div class="chat-msg system">
-              <div class="chat-bubble">
-                <p>Hi — I'm your AI strategy builder. Describe a trading strategy in plain English, or <strong>attach a
-                    chart screenshot</strong> for pattern analysis.</p>
-                <p style="margin-top:6px;opacity:.5;font-size:11px">Try: <em>"RSI mean-reversion on ARB/USD"</em></p>
-              </div>
-            </div>
-          </div>
-
-          <!-- Image preview -->
-          <div class="image-preview-bar" id="imagePreviewBar" style="display:none">
-            <div class="image-preview-inner">
-              <img id="imagePreviewThumb" src="" alt="Chart preview" class="image-thumb">
-              <div class="image-preview-info">
-                <span id="imagePreviewName" class="image-name">chart.png</span>
-                <span class="image-hint">AI will analyze this chart</span>
-              </div>
-              <button class="btn-remove-image" id="removeImageBtn" title="Remove image">✕</button>
-            </div>
-          </div>
-
-          <!-- Chat input bar -->
-          <div class="chat-input-bar">
-            <input type="file" id="imageUploadInput" accept="image/*" style="display:none">
-            <div class="chat-input-row">
-              <textarea id="chatInput" class="chat-input" rows="2" placeholder="Describe your strategy…"></textarea>
-            </div>
-            <div class="chat-action-row">
-              <button class="btn-attach" id="attachImageBtn" title="Attach chart image">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                  stroke-linecap="round" stroke-linejoin="round">
-                  <rect x="3" y="3" width="18" height="18" rx="2" />
-                  <circle cx="8.5" cy="8.5" r="1.5" />
-                  <polyline points="21 15 16 10 5 21" />
-                </svg>
-                <span>Chart</span>
-              </button>
-              <button class="btn-generate" id="chatSend" title="Generate strategy (Ctrl+Enter)">
-                Generate
-                <svg width="11" height="11" viewBox="0 0 16 16" fill="none">
-                  <path d="M2 8h12M10 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
-                    stroke-linejoin="round" />
-                </svg>
-              </button>
-            </div>
-          </div>
-        </div><!-- /col-chat -->
-
-        <!-- drag handle 1↔2 -->
-        <div class="col-resizer" id="resizer-col2" title="Drag to resize"></div>
-
-        <!-- COL 2: Strategy Code -->
-        <div class="creator-col col-code">
-          <div class="col-header">
-            <span class="col-title">Strategy Code</span>
-            <button class="btn-icon" id="saveChatStratBtn" title="Save to library" style="display:none">
-              <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
-                <path d="M2 10h8M2 2h6l2 2v6H2V2zM4 7h4v3H4V7z" stroke="currentColor" stroke-width="1.3"
-                  stroke-linecap="round" stroke-linejoin="round" />
-              </svg>
-              Save
-            </button>
-          </div>
-
-          <div class="col-code-inner" id="chatOutput">
-            <div class="code-empty-state" id="codeEmptyState">
-              <svg width="28" height="28" viewBox="0 0 40 40" fill="none">
-                <path d="M12 16l-6 4 6 4M28 16l6 4-6 4M22 12l-4 16" stroke="#2a2a2a" stroke-width="2.5"
-                  stroke-linecap="round" stroke-linejoin="round" />
-              </svg>
-              <span>Generate a strategy to see the code</span>
+          <!-- TOP LEFT: AI Chat & Algorithm -->
+          <div class="grid-panel panel-chat">
+            <div class="panel-header">
+              <span class="panel-title">AI Strategy Builder</span>
             </div>
 
-            <div class="code-section" id="code-section-algo" style="display:none">
-              <div class="code-section-label">Algorithm <span class="code-section-tag">Logic</span></div>
-              <div class="code-algo-body" id="out-algo"></div>
-            </div>
-
-            <div class="code-section" id="code-section-py" style="display:none">
-              <div class="code-section-label">
-                Python Code <span class="code-section-tag">Strategy</span>
-                <div style="display:flex;gap:5px;align-items:center">
-                  <button class="btn-update-code" id="regenCodeBtn" title="Regenerate from scratch">
-                    <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
-                      <path d="M10 6A4 4 0 112 6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" />
-                      <path d="M10 2v4H6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"
-                        stroke-linejoin="round" />
-                    </svg>
-                    Regen
-                  </button>
-                  <button class="btn-update-code" id="updateCodeBtn" title="Save manual edits">
-                    <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
-                      <path d="M9 1l2 2-6 6H3V7l6-6z" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"
-                        stroke-linejoin="round" />
-                    </svg>
-                    Update
-                  </button>
-                </div>
-              </div>
-              <div id="codeEditor" class="code-editor-wrap"></div>
-              <pre id="codeBlock" style="display:none"></pre>
-            </div>
-
-            <div class="code-section" id="code-section-params" style="display:none">
-              <div class="code-section-label">Parameters <span class="code-section-tag">Config</span></div>
-              <div id="out-params"></div>
-            </div>
-          </div>
-        </div><!-- /col-code -->
-
-        <!-- drag handle 2↔3 -->
-        <div class="col-resizer" id="resizer-col3" title="Drag to resize"></div>
-
-        <!-- COL 3: Strategy Tester Results -->
-        <div class="creator-col col-results">
-          <!-- Results header: tabs + run button -->
-          <div class="col-header results-header">
-            <div class="bt-tabs">
-              <button class="bt-tab active" data-bt-tab="overview" id="bttab-overview">Overview</button>
-              <button class="bt-tab" data-bt-tab="perfsummary" id="bttab-perfsummary">Performance</button>
-              <button class="bt-tab" data-bt-tab="trades" id="bttab-trades">
-                Trades <span id="tradeCount" class="bt-trade-badge"></span>
-              </button>
-              <button class="bt-tab" data-bt-tab="properties" id="bttab-properties">Properties</button>
-            </div>
-            <button class="btn-run" id="runBacktestBtn">
-              <svg width="9" height="9" viewBox="0 0 14 14" fill="none">
-                <path d="M3 2l9 5-9 5V2z" fill="currentColor" />
-              </svg>
-              Run
-            </button>
-          </div>
-
-          <!-- Status line -->
-          <div class="results-status" id="btStatusLabel">Run a backtest to see performance</div>
-
-          <!-- Tab panels -->
-          <!-- OVERVIEW -->
-          <div class="bt-tab-panel active" id="bt-panel-overview">
-            <div class="bt-overview-metrics">
-              <div class="bt-ov-metric">
-                <div class="bt-ov-label">Net P&amp;L</div>
-                <div class="bt-ov-value" id="m-return">—</div>
-                <div class="bt-ov-sub" id="m-return-sub"></div>
-              </div>
-              <div class="bt-ov-metric">
-                <div class="bt-ov-label">Max Drawdown</div>
-                <div class="bt-ov-value neg" id="m-drawdown">—</div>
-                <div class="bt-ov-bar-wrap">
-                  <div class="bt-ov-bar neg" id="m-drawdown-bar" style="width:0%"></div>
-                </div>
-              </div>
-              <div class="bt-ov-metric">
-                <div class="bt-ov-label">Profit Factor</div>
-                <div class="bt-ov-value" id="m-sharpe">—</div>
-                <div class="bt-ov-sub" id="m-avgtrade-sub"></div>
-              </div>
-              <div class="bt-ov-metric">
-                <div class="bt-ov-label">Win Rate</div>
-                <div class="bt-ov-value" id="m-winrate">—</div>
-                <div class="bt-ov-bar-wrap">
-                  <div class="bt-ov-bar pos" id="m-winrate-bar" style="width:0%"></div>
-                </div>
-              </div>
-              <div class="bt-ov-metric">
-                <div class="bt-ov-label">Trades</div>
-                <div class="bt-ov-value" id="m-trades">—</div>
-                <div class="bt-ov-sub">
-                  <span class="pos" id="m-winning-trades">—</span> W &middot;
-                  <span class="neg" id="m-losing-trades">—</span> L
+            <div class="chat-messages" id="chatMessages">
+              <div class="chat-msg system">
+                <div class="chat-bubble">
+                  <p>Hi — I'm your AI strategy builder. Describe a trading strategy in plain English, or <strong>attach
+                      a chart screenshot</strong> for pattern analysis.</p>
+                  <p style="margin-top:6px;opacity:.5;font-size:11px">Try: <em>"RSI mean-reversion on ARB/USD"</em></p>
                 </div>
               </div>
             </div>
 
-            <div class="bt-equity-zone">
-              <div class="bt-chart-empty" id="equityEmptyState">
-                <svg width="20" height="20" viewBox="0 0 40 40" fill="none">
-                  <polyline points="2,32 10,20 18,26 28,12 38,16" stroke="#2a2a2a" stroke-width="2.5" fill="none"
+            <!-- Image preview -->
+            <div class="image-preview-bar" id="imagePreviewBar" style="display:none">
+              <div class="image-preview-inner">
+                <img id="imagePreviewThumb" src="" alt="Chart preview" class="image-thumb">
+                <div class="image-preview-info">
+                  <span id="imagePreviewName" class="image-name">chart.png</span>
+                  <span class="image-hint">AI will analyze this chart</span>
+                </div>
+                <button class="btn-remove-image" id="removeImageBtn" title="Remove image">✕</button>
+              </div>
+            </div>
+
+            <!-- Chat input bar -->
+            <div class="chat-input-bar">
+              <input type="file" id="imageUploadInput" accept="image/*" style="display:none">
+              <div class="chat-input-row">
+                <textarea id="chatInput" class="chat-input" rows="2" placeholder="Describe your strategy…"></textarea>
+              </div>
+              <div class="chat-action-row">
+                <button class="btn-attach" id="attachImageBtn" title="Attach chart image">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="3" width="18" height="18" rx="2" />
+                    <circle cx="8.5" cy="8.5" r="1.5" />
+                    <polyline points="21 15 16 10 5 21" />
+                  </svg>
+                  <span>Chart</span>
+                </button>
+                <button class="btn-generate" id="chatSend" title="Generate strategy (Ctrl+Enter)">
+                  Generate
+                  <svg width="11" height="11" viewBox="0 0 16 16" fill="none">
+                    <path d="M2 8h12M10 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+                      stroke-linejoin="round" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div><!-- /panel-chat -->
+
+          <!-- Horizontal resizer between chat and code -->
+          <div class="row-resizer" id="resizer-left-row" title="Drag to resize"></div>
+
+          <!-- BOTTOM LEFT: Strategy Code -->
+          <div class="grid-panel panel-code">
+            <div class="panel-header">
+              <span class="panel-title">Strategy Code</span>
+              <button class="btn-icon" id="saveChatStratBtn" title="Save to library" style="display:none">
+                <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
+                  <path d="M2 10h8M2 2h6l2 2v6H2V2zM4 7h4v3H4V7z" stroke="currentColor" stroke-width="1.3"
                     stroke-linecap="round" stroke-linejoin="round" />
                 </svg>
-                <span>Equity curve</span>
-              </div>
-              <div id="resultChartWrap" style="display:none;width:100%;height:100%">
-                <div id="resultChart" style="width:100%;height:100%"></div>
-              </div>
+                Save
+              </button>
             </div>
 
-            <div class="bt-monthly-strip">
-              <div class="bt-monthly-strip-label">Monthly</div>
-              <div id="monthlyTable" class="bt-monthly-scroll">
-                <div class="bt-monthly-empty">—</div>
+            <div class="col-code-inner" id="chatOutput">
+              <div class="code-empty-state" id="codeEmptyState">
+                <svg width="28" height="28" viewBox="0 0 40 40" fill="none">
+                  <path d="M12 16l-6 4 6 4M28 16l6 4-6 4M22 12l-4 16" stroke="#2a2a2a" stroke-width="2.5"
+                    stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+                <span>Generate a strategy to see the code</span>
+              </div>
+
+              <div class="code-section" id="code-section-algo" style="display:none">
+                <div class="code-section-label">Algorithm <span class="code-section-tag">Logic</span></div>
+                <div class="code-algo-body" id="out-algo"></div>
+              </div>
+
+              <div class="code-section" id="code-section-py" style="display:none">
+                <div class="code-section-label">
+                  Python Code <span class="code-section-tag">Strategy</span>
+                  <div style="display:flex;gap:5px;align-items:center">
+                    <button class="btn-update-code" id="regenCodeBtn" title="Regenerate from scratch">
+                      <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
+                        <path d="M10 6A4 4 0 112 6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" />
+                        <path d="M10 2v4H6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"
+                          stroke-linejoin="round" />
+                      </svg>
+                      Regen
+                    </button>
+                    <button class="btn-update-code" id="updateCodeBtn" title="Save manual edits">
+                      <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
+                        <path d="M9 1l2 2-6 6H3V7l6-6z" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"
+                          stroke-linejoin="round" />
+                      </svg>
+                      Update
+                    </button>
+                  </div>
+                </div>
+                <div id="codeEditor" class="code-editor-wrap"></div>
+                <pre id="codeBlock" style="display:none"></pre>
+              </div>
+
+              <div class="code-section" id="code-section-params" style="display:none">
+                <div class="code-section-label">Parameters <span class="code-section-tag">Config</span></div>
+                <div id="out-params"></div>
               </div>
             </div>
-          </div><!-- /overview -->
+          </div><!-- /panel-code -->
 
-          <!-- PERFORMANCE SUMMARY -->
-          <div class="bt-tab-panel" id="bt-panel-perfsummary">
-            <div class="bt-perf-grid">
-              <div class="bt-perf-col">
-                <div class="bt-perf-col-header">All Trades</div>
-                <div id="perfAllStats" class="bt-perf-stats">
-                  <div class="bt-perf-empty">No data</div>
-                </div>
+        </div><!-- /grid-left -->
+
+        <!-- ── Vertical resizer between left and right columns ── -->
+        <div class="col-resizer" id="resizer-col" title="Drag to resize"></div>
+
+        <!-- ── RIGHT COLUMN ── -->
+        <div class="grid-right">
+
+          <!-- TOP RIGHT: Price Chart -->
+          <div class="grid-panel panel-chart" id="creatorChartZone">
+            <div class="panel-header">
+              <span class="panel-title" id="chartZoneLabel">Price Chart</span>
+              <span class="panel-hint" id="chartZoneHint">Run a backtest to see trade entries &amp; exits</span>
+            </div>
+            <div class="panel-body chart-body">
+              <div class="bt-chart-empty" id="chartEmptyState">
+                <svg width="28" height="28" viewBox="0 0 48 48" fill="none">
+                  <rect x="4" y="28" width="7" height="16" rx="1.5" fill="#1e1e22" />
+                  <rect x="15" y="18" width="7" height="26" rx="1.5" fill="#1e1e22" />
+                  <rect x="26" y="22" width="7" height="22" rx="1.5" fill="#1e1e22" />
+                  <rect x="37" y="10" width="7" height="34" rx="1.5" fill="#1e1e22" />
+                </svg>
+                <span>Run a backtest to see candlesticks with trade entries &amp; exits</span>
               </div>
-              <div class="bt-perf-col">
-                <div class="bt-perf-col-header">
-                  <div class="bt-perf-dot long"></div> Long
-                </div>
-                <div id="perfLongStats" class="bt-perf-stats">
-                  <div class="bt-perf-empty">No data</div>
-                </div>
-              </div>
-              <div class="bt-perf-col">
-                <div class="bt-perf-col-header">
-                  <div class="bt-perf-dot short"></div> Short
-                </div>
-                <div id="perfShortStats" class="bt-perf-stats">
-                  <div class="bt-perf-empty">No data</div>
-                </div>
+              <div id="priceChartWrap" style="display:none;width:100%;height:100%">
+                <div id="priceChart" style="width:100%;height:100%"></div>
               </div>
             </div>
-          </div><!-- /perfsummary -->
+          </div><!-- /panel-chart -->
 
-          <!-- LIST OF TRADES -->
-          <div class="bt-tab-panel" id="bt-panel-trades">
-            <div class="bt-trade-table-wrap">
-              <table class="bt-trade-table">
-                <thead>
-                  <tr>
-                    <th>#</th>
-                    <th>Date</th>
-                    <th>Type</th>
-                    <th>Entry</th>
-                    <th>Exit</th>
-                    <th>P&amp;L %</th>
-                    <th>Cum.</th>
-                    <th>Run-up</th>
-                    <th>DD</th>
-                  </tr>
-                </thead>
-                <tbody id="tradeRegister">
-                  <tr>
-                    <td colspan="9" class="bt-register-empty">Run a backtest to see trades</td>
-                  </tr>
-                </tbody>
-              </table>
+          <!-- Horizontal resizer between chart and results -->
+          <div class="row-resizer" id="resizer-right-row" title="Drag to resize"></div>
+
+          <!-- BOTTOM RIGHT: Performance & Equity Curve -->
+          <div class="grid-panel panel-results">
+            <!-- Header: tabs + run button -->
+            <div class="panel-header results-header">
+              <div class="bt-tabs">
+                <button class="bt-tab active" data-bt-tab="overview" id="bttab-overview">Overview</button>
+                <button class="bt-tab" data-bt-tab="perfsummary" id="bttab-perfsummary">Performance</button>
+                <button class="bt-tab" data-bt-tab="trades" id="bttab-trades">
+                  Trades <span id="tradeCount" class="bt-trade-badge"></span>
+                </button>
+                <button class="bt-tab" data-bt-tab="properties" id="bttab-properties">Properties</button>
+              </div>
+              <button class="btn-run" id="runBacktestBtn">
+                <svg width="9" height="9" viewBox="0 0 14 14" fill="none">
+                  <path d="M3 2l9 5-9 5V2z" fill="currentColor" />
+                </svg>
+                Run Backtest
+              </button>
             </div>
-          </div><!-- /trades -->
 
-          <!-- PROPERTIES -->
-          <div class="bt-tab-panel" id="bt-panel-properties">
-            <div class="bt-props-grid">
-              <div class="bt-props-section">
-                <div class="bt-props-title">Backtest Settings</div>
-                <div class="bt-props-row"><label class="bt-props-label">Initial Capital</label>
-                  <div class="bt-props-value">$10,000</div>
+            <!-- Status line -->
+            <div class="results-status" id="btStatusLabel">Run a backtest to see performance</div>
+
+            <!-- ── OVERVIEW TAB ── -->
+            <div class="bt-tab-panel active" id="bt-panel-overview">
+              <div class="bt-overview-metrics">
+                <div class="bt-ov-metric">
+                  <div class="bt-ov-label">Net P&amp;L</div>
+                  <div class="bt-ov-value" id="m-return">—</div>
+                  <div class="bt-ov-sub" id="m-return-sub"></div>
                 </div>
-                <div class="bt-props-row"><label class="bt-props-label">Order Size</label>
-                  <div class="bt-props-value">100% equity</div>
+                <div class="bt-ov-metric">
+                  <div class="bt-ov-label">Max Drawdown</div>
+                  <div class="bt-ov-value neg" id="m-drawdown">—</div>
+                  <div class="bt-ov-bar-wrap">
+                    <div class="bt-ov-bar neg" id="m-drawdown-bar" style="width:0%"></div>
+                  </div>
                 </div>
-                <div class="bt-props-row"><label class="bt-props-label">Commission</label>
-                  <div class="bt-props-value">0%</div>
+                <div class="bt-ov-metric">
+                  <div class="bt-ov-label">Profit Factor</div>
+                  <div class="bt-ov-value" id="m-sharpe">—</div>
+                  <div class="bt-ov-sub" id="m-avgtrade-sub"></div>
                 </div>
-                <div class="bt-props-row"><label class="bt-props-label">Pyramiding</label>
-                  <div class="bt-props-value">Off</div>
+                <div class="bt-ov-metric">
+                  <div class="bt-ov-label">Win Rate</div>
+                  <div class="bt-ov-value" id="m-winrate">—</div>
+                  <div class="bt-ov-bar-wrap">
+                    <div class="bt-ov-bar pos" id="m-winrate-bar" style="width:0%"></div>
+                  </div>
+                </div>
+                <div class="bt-ov-metric">
+                  <div class="bt-ov-label">Trades</div>
+                  <div class="bt-ov-value" id="m-trades">—</div>
+                  <div class="bt-ov-sub">
+                    <span class="pos" id="m-winning-trades">—</span> W &middot;
+                    <span class="neg" id="m-losing-trades">—</span> L
+                  </div>
                 </div>
               </div>
-              <div class="bt-props-section">
-                <div class="bt-props-title">Strategy Parameters</div>
-                <div id="propsParamsBody">
-                  <div class="bt-perf-empty">Load a strategy first</div>
+
+              <div class="bt-equity-zone">
+                <div class="bt-chart-empty" id="equityEmptyState">
+                  <svg width="20" height="20" viewBox="0 0 40 40" fill="none">
+                    <polyline points="2,32 10,20 18,26 28,12 38,16" stroke="#2a2a2a" stroke-width="2.5" fill="none"
+                      stroke-linecap="round" stroke-linejoin="round" />
+                  </svg>
+                  <span>Equity curve appears here after backtest</span>
+                </div>
+                <div id="resultChartWrap" style="display:none;width:100%;height:100%">
+                  <div id="resultChart" style="width:100%;height:100%"></div>
                 </div>
               </div>
-            </div>
-          </div><!-- /properties -->
 
-        </div><!-- /col-results -->
+              <div class="bt-monthly-strip">
+                <div class="bt-monthly-strip-label">Monthly P&amp;L</div>
+                <div id="monthlyTable" class="bt-monthly-scroll">
+                  <div class="bt-monthly-empty">—</div>
+                </div>
+              </div>
+            </div><!-- /overview -->
 
-      </div><!-- /creator-top -->
+            <!-- ── PERFORMANCE SUMMARY TAB ── -->
+            <div class="bt-tab-panel" id="bt-panel-perfsummary">
+              <div class="bt-perf-grid">
+                <div class="bt-perf-col">
+                  <div class="bt-perf-col-header">All Trades</div>
+                  <div id="perfAllStats" class="bt-perf-stats">
+                    <div class="bt-perf-empty">No data</div>
+                  </div>
+                </div>
+                <div class="bt-perf-col">
+                  <div class="bt-perf-col-header">
+                    <div class="bt-perf-dot long"></div> Long
+                  </div>
+                  <div id="perfLongStats" class="bt-perf-stats">
+                    <div class="bt-perf-empty">No data</div>
+                  </div>
+                </div>
+                <div class="bt-perf-col">
+                  <div class="bt-perf-col-header">
+                    <div class="bt-perf-dot short"></div> Short
+                  </div>
+                  <div id="perfShortStats" class="bt-perf-stats">
+                    <div class="bt-perf-empty">No data</div>
+                  </div>
+                </div>
+              </div>
+            </div><!-- /perfsummary -->
 
-      <!-- ── BOTTOM: Price Chart (full width, resizable) ── -->
-      <div class="row-resizer" id="resizer-chart" title="Drag to resize chart"></div>
-      <div class="creator-chart-zone" id="creatorChartZone">
-        <div class="chart-zone-header">
-          <span class="chart-zone-label" id="chartZoneLabel">Price Chart</span>
-          <span class="chart-zone-hint" id="chartZoneHint">Run a backtest to see trade entries &amp; exits</span>
-        </div>
-        <div class="chart-zone-body">
-          <div class="bt-chart-empty" id="chartEmptyState">
-            <svg width="28" height="28" viewBox="0 0 48 48" fill="none">
-              <rect x="4" y="28" width="7" height="16" rx="1.5" fill="#1e1e22" />
-              <rect x="15" y="18" width="7" height="26" rx="1.5" fill="#1e1e22" />
-              <rect x="26" y="22" width="7" height="22" rx="1.5" fill="#1e1e22" />
-              <rect x="37" y="10" width="7" height="34" rx="1.5" fill="#1e1e22" />
-            </svg>
-            <span>Run a backtest to see candlesticks with trade entries &amp; exits</span>
-          </div>
-          <div id="priceChartWrap" style="display:none;width:100%;height:100%">
-            <div id="priceChart" style="width:100%;height:100%"></div>
-          </div>
-        </div>
-      </div>
+            <!-- ── LIST OF TRADES TAB ── -->
+            <div class="bt-tab-panel" id="bt-panel-trades">
+              <div class="bt-trade-table-wrap">
+                <table class="bt-trade-table">
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>Date</th>
+                      <th>Type</th>
+                      <th>Entry</th>
+                      <th>Exit</th>
+                      <th>P&amp;L %</th>
+                      <th>Cum.</th>
+                      <th>Run-up</th>
+                      <th>DD</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tradeRegister">
+                    <tr>
+                      <td colspan="9" class="bt-register-empty">Run a backtest to see trades</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div><!-- /trades -->
+
+            <!-- ── PROPERTIES TAB ── -->
+            <div class="bt-tab-panel" id="bt-panel-properties">
+              <div class="bt-props-grid">
+                <div class="bt-props-section">
+                  <div class="bt-props-title">Backtest Settings</div>
+                  <div class="bt-props-row"><label class="bt-props-label">Initial Capital</label>
+                    <div class="bt-props-value">$10,000</div>
+                  </div>
+                  <div class="bt-props-row"><label class="bt-props-label">Order Size</label>
+                    <div class="bt-props-value">100% equity</div>
+                  </div>
+                  <div class="bt-props-row"><label class="bt-props-label">Commission</label>
+                    <div class="bt-props-value">0%</div>
+                  </div>
+                  <div class="bt-props-row"><label class="bt-props-label">Pyramiding</label>
+                    <div class="bt-props-value">Off</div>
+                  </div>
+                </div>
+                <div class="bt-props-section">
+                  <div class="bt-props-title">Strategy Parameters</div>
+                  <div id="propsParamsBody">
+                    <div class="bt-perf-empty">Load a strategy first</div>
+                  </div>
+                </div>
+              </div>
+            </div><!-- /properties -->
+
+          </div><!-- /panel-results -->
+
+        </div><!-- /grid-right -->
+
+      </div><!-- /creator-grid -->
 
     </div><!-- /panel-creator -->
 
@@ -689,12 +708,12 @@
     </div>
   </div>
 
-  <script src="app.js?v=3"></script>
-  <script src="resize.js?v=3"></script>
-  <script src="backtest.js?v=3"></script>
-  <script src="creator.js?v=3"></script>
-  <script src="library.js?v=3"></script>
-  <script src="bot.js?v=3"></script>
+  <script src="app.js?v=4"></script>
+  <script src="resize.js?v=4"></script>
+  <script src="backtest.js?v=4"></script>
+  <script src="creator.js?v=4"></script>
+  <script src="library.js?v=4"></script>
+  <script src="bot.js?v=4"></script>
 
   <!-- Particle canvas -->
   <canvas id="particleCanvas" style="position:fixed;inset:0;pointer-events:none;z-index:0;opacity:.3"></canvas>
@@ -820,16 +839,18 @@
         if (editor.getValue() !== code) {
           editor.setValue(code);
           editor.clearHistory();
+          setTimeout(function () { editor.refresh(); }, 50);
         }
       });
 
-      // Fallback: poll _lastStrategyCode every 800ms (catches loadStratToCreator)
+      // Fallback: poll _lastStrategyCode every 800ms (catches loadStratToCreator race)
       var _prevCode = '';
       setInterval(function () {
         var cur = window._lastStrategyCode || '';
         if (cur && cur !== _prevCode && cur !== editor.getValue()) {
           editor.setValue(cur);
           editor.clearHistory();
+          setTimeout(function () { editor.refresh(); }, 50);
           _prevCode = cur;
         }
       }, 800);

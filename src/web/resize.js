@@ -1,202 +1,151 @@
 /**
- * resize.js — Drag-to-resize panel handles for Strategy Lab Creator
+ * resize.js — Drag-to-resize handles for the 2×2 Strategy Lab grid
  *
- * Handles:
- *   col-resizer#resizer-col2  → adjusts --col1-w  (Chat column width)
- *   col-resizer#resizer-col3  → adjusts --col3-w  (Results column width)
- *   row-resizer#resizer-chart → adjusts --chart-h (Bottom chart height)
+ *  Resizers:
+ *    col-resizer#resizer-col       → resize left vs right column
+ *    row-resizer#resizer-left-row  → resize chat (top-left) vs code (bottom-left)
+ *    row-resizer#resizer-right-row → resize chart (top-right) vs results (bottom-right)
  *
- * CSS variables are set on :root and persisted to localStorage.
+ *  Default layout is 50/50 everywhere (via CSS flex).
+ *  When the user drags a handle, pixel sizes are saved to localStorage.
  */
 
 (function () {
     'use strict';
 
-    const MIN_COL = 160;   // px — minimum column width
-    const MAX_COL = 700;   // px — maximum column width
-    const MIN_ROW = 80;    // px — minimum row height
-    const MAX_ROW = 700;   // px — maximum row height
+    const MIN_PX = 120;   // minimum panel size in px
+    const MAX_PX = 2000;  // generous max
 
-    const root = document.documentElement;
+    /* ── Utilities ────────────────────────────────────────────────── */
+    const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+    const save = (k, v) => { try { localStorage.setItem('sl-' + k, Math.round(v)); } catch (_) { } };
+    const load = (k) => { try { const v = parseInt(localStorage.getItem('sl-' + k), 10); return isNaN(v) ? null : v; } catch (_) { return null; } };
 
-    /* ── Utility ─────────────────────────────────────────────────── */
-    function setVar(name, px) {
-        root.style.setProperty(name, px + 'px');
-    }
-
-    function clamp(v, lo, hi) {
-        return Math.max(lo, Math.min(hi, v));
-    }
-
-    function save(key, px) {
-        try { localStorage.setItem('sl-resize-' + key, Math.round(px)); } catch (_) { }
-    }
-
-    function load(key, fallback) {
-        try {
-            const v = parseInt(localStorage.getItem('sl-resize-' + key), 10);
-            return isNaN(v) ? fallback : v;
-        } catch (_) { return fallback; }
-    }
-
-    /* ── Restore saved sizes on boot ─────────────────────────────── */
+    /* ── Restore saved sizes (only if user previously resized) ────── */
     function restore() {
-        setVar('--col1-w', clamp(load('col1', 320), MIN_COL, MAX_COL));
-        setVar('--col3-w', clamp(load('col3', 340), MIN_COL, MAX_COL));
-        setVar('--chart-h', clamp(load('chart', 240), MIN_ROW, MAX_ROW));
+        // Column split
+        const leftEl = document.querySelector('.grid-left');
+        const lw = load('left-w');
+        if (lw !== null && leftEl) {
+            leftEl.style.flex = '0 0 ' + clamp(lw, MIN_PX, MAX_PX) + 'px';
+        }
+        // else: CSS flex: 35 default applies (≈35% width)
+
+        // Left row split: chat height
+        const chatEl = document.querySelector('.panel-chat');
+        const ch = load('chat-h');
+        if (ch !== null && chatEl) {
+            chatEl.style.height = clamp(ch, MIN_PX, MAX_PX) + 'px';
+            chatEl.style.flexShrink = '0';
+        }
+
+        // Right row split: chart height
+        const chartEl = document.querySelector('.panel-chart');
+        const crh = load('chart-h');
+        if (crh !== null && chartEl) {
+            chartEl.style.height = clamp(crh, MIN_PX, MAX_PX) + 'px';
+            chartEl.style.flexShrink = '0';
+        }
     }
 
-    /* ── Column drag handler ──────────────────────────────────────── */
-    /**
-     * @param {string} handleId — id of .col-resizer element
-     * @param {string} cssVar   — CSS variable to update
-     * @param {string} saveKey  — localStorage key
-     * @param {number} invert   — +1 or -1 (invert delta for right-side col)
-     * @param {number} defW     — default width (for dblclick reset)
-     */
-    function attachColResizer(handleId, cssVar, saveKey, invert, defW) {
+    /* ── Column resizer (splits left ↔ right) ─────────────────────── */
+    function attachColResizer(handleId) {
         const handle = document.getElementById(handleId);
         if (!handle) return;
 
-        let startX = 0;
-        let startW = 0;
-
-        handle.addEventListener('mousedown', (e) => {
+        handle.addEventListener('mousedown', e => {
             e.preventDefault();
-            startX = e.clientX;
-            startW = parseInt(root.style.getPropertyValue(cssVar), 10) || defW;
+            const leftEl = document.querySelector('.grid-left');
+            if (!leftEl) return;
+
+            const startX = e.clientX;
+            const startW = leftEl.getBoundingClientRect().width;
 
             handle.classList.add('dragging');
             document.body.style.cursor = 'col-resize';
             document.body.style.userSelect = 'none';
 
-            const onMove = (ev) => {
-                const delta = (ev.clientX - startX) * invert;
-                setVar(cssVar, clamp(startW + delta, MIN_COL, MAX_COL));
+            const move = ev => {
+                const w = clamp(startW + (ev.clientX - startX), MIN_PX, MAX_PX);
+                leftEl.style.flex = '0 0 ' + w + 'px';
             };
 
-            const onUp = (ev) => {
-                const delta = (ev.clientX - startX) * invert;
-                const newW = clamp(startW + delta, MIN_COL, MAX_COL);
-                setVar(cssVar, newW);
-                save(saveKey, newW);
+            const up = ev => {
+                const w = clamp(startW + (ev.clientX - startX), MIN_PX, MAX_PX);
+                leftEl.style.flex = '0 0 ' + w + 'px';
+                save('left-w', w);
                 handle.classList.remove('dragging');
                 document.body.style.cursor = '';
                 document.body.style.userSelect = '';
-                document.removeEventListener('mousemove', onMove);
-                document.removeEventListener('mouseup', onUp);
+                document.removeEventListener('mousemove', move);
+                document.removeEventListener('mouseup', up);
             };
 
-            document.addEventListener('mousemove', onMove);
-            document.addEventListener('mouseup', onUp);
+            document.addEventListener('mousemove', move);
+            document.addEventListener('mouseup', up);
         });
 
+        // Double-click to reset to equal (remove override)
         handle.addEventListener('dblclick', () => {
-            setVar(cssVar, defW);
-            save(saveKey, defW);
+            const leftEl = document.querySelector('.grid-left');
+            if (leftEl) { leftEl.style.flex = '1'; }
+            try { localStorage.removeItem('sl-left-w'); } catch (_) { }
         });
     }
 
-    /* ── Row drag handler ─────────────────────────────────────────── */
-    /**
-     * @param {string} handleId — id of .row-resizer element
-     * @param {string} cssVar   — CSS variable to update
-     * @param {string} saveKey  — localStorage key
-     * @param {number} defH     — default height (for dblclick reset)
-     */
-    function attachRowResizer(handleId, cssVar, saveKey, defH) {
+    /* ── Row resizer (splits top ↔ bottom within a column) ─────────── */
+    function attachRowResizer(handleId, topSelector, saveKey) {
         const handle = document.getElementById(handleId);
         if (!handle) return;
 
-        let startY = 0;
-        let startH = 0;
-
-        handle.addEventListener('mousedown', (e) => {
+        handle.addEventListener('mousedown', e => {
             e.preventDefault();
-            startY = e.clientY;
-            startH = parseInt(root.style.getPropertyValue(cssVar), 10) || defH;
+            const topEl = document.querySelector(topSelector);
+            if (!topEl) return;
+
+            const startY = e.clientY;
+            const startH = topEl.getBoundingClientRect().height;
 
             handle.classList.add('dragging');
             document.body.style.cursor = 'row-resize';
             document.body.style.userSelect = 'none';
 
-            const onMove = (ev) => {
-                /* Dragging up makes it taller */
-                const delta = startY - ev.clientY;
-                setVar(cssVar, clamp(startH + delta, MIN_ROW, MAX_ROW));
+            const move = ev => {
+                const h = clamp(startH + (ev.clientY - startY), MIN_PX, MAX_PX);
+                topEl.style.height = h + 'px';
+                topEl.style.flexShrink = '0';
             };
 
-            const onUp = (ev) => {
-                const delta = startY - ev.clientY;
-                const newH = clamp(startH + delta, MIN_ROW, MAX_ROW);
-                setVar(cssVar, newH);
-                save(saveKey, newH);
+            const up = ev => {
+                const h = clamp(startH + (ev.clientY - startY), MIN_PX, MAX_PX);
+                topEl.style.height = h + 'px';
+                topEl.style.flexShrink = '0';
+                save(saveKey, h);
                 handle.classList.remove('dragging');
                 document.body.style.cursor = '';
                 document.body.style.userSelect = '';
-                document.removeEventListener('mousemove', onMove);
-                document.removeEventListener('mouseup', onUp);
+                document.removeEventListener('mousemove', move);
+                document.removeEventListener('mouseup', up);
             };
 
-            document.addEventListener('mousemove', onMove);
-            document.addEventListener('mouseup', onUp);
+            document.addEventListener('mousemove', move);
+            document.addEventListener('mouseup', up);
         });
 
+        // Double-click to reset to 50/50
         handle.addEventListener('dblclick', () => {
-            setVar(cssVar, defH);
-            save(saveKey, defH);
-        });
-    }
-
-    /* ── Touch support helper ─────────────────────────────────────── */
-    function addTouchSupport(el, cssVar, saveKey, isRow, invert) {
-        let startPos = 0;
-        let startVal = 0;
-
-        el.addEventListener('touchstart', (e) => {
-            const t = e.touches[0];
-            startPos = isRow ? t.clientY : t.clientX;
-            startVal = parseInt(root.style.getPropertyValue(cssVar), 10) || (isRow ? 240 : 320);
-            el.classList.add('dragging');
-        }, { passive: true });
-
-        el.addEventListener('touchmove', (e) => {
-            e.preventDefault();
-            const t = e.touches[0];
-            const pos = isRow ? t.clientY : t.clientX;
-            const dir = isRow ? (startPos - pos) : (pos - startPos) * (invert || 1);
-            const lo = isRow ? MIN_ROW : MIN_COL;
-            const hi = isRow ? MAX_ROW : MAX_COL;
-            setVar(cssVar, clamp(startVal + dir, lo, hi));
-        }, { passive: false });
-
-        el.addEventListener('touchend', () => {
-            const v = parseInt(root.style.getPropertyValue(cssVar), 10);
-            if (v) save(saveKey, v);
-            el.classList.remove('dragging');
+            const topEl = document.querySelector(topSelector);
+            if (topEl) { topEl.style.height = '50%'; topEl.style.flexShrink = ''; }
+            try { localStorage.removeItem('sl-' + saveKey); } catch (_) { }
         });
     }
 
     /* ── Init ─────────────────────────────────────────────────────── */
     function init() {
         restore();
-
-        /* resizer-col2: drag right/left to resize the Chat column (col1) */
-        attachColResizer('resizer-col2', '--col1-w', 'col1', 1, 320);
-
-        /* resizer-col3: drag right/left to resize the Results column (col3, inverted) */
-        attachColResizer('resizer-col3', '--col3-w', 'col3', -1, 340);
-
-        /* resizer-chart: drag up to make bottom chart taller */
-        attachRowResizer('resizer-chart', '--chart-h', 'chart', 240);
-
-        /* Touch */
-        const r2 = document.getElementById('resizer-col2');
-        const r3 = document.getElementById('resizer-col3');
-        const rch = document.getElementById('resizer-chart');
-        if (r2) addTouchSupport(r2, '--col1-w', 'col1', false, 1);
-        if (r3) addTouchSupport(r3, '--col3-w', 'col3', false, -1);
-        if (rch) addTouchSupport(rch, '--chart-h', 'chart', true, 1);
+        attachColResizer('resizer-col');
+        attachRowResizer('resizer-left-row', '.panel-chat', 'chat-h');
+        attachRowResizer('resizer-right-row', '.panel-chart', 'chart-h');
     }
 
     if (document.readyState === 'loading') {

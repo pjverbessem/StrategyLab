@@ -124,13 +124,20 @@ async function loadStratToCreator(id) {
         secAlgo.style.display = 'block';
     }
     if (secPy) {
-        if (window.creatorEditor) {
-            window.creatorEditor.setValue(strat.code || '# No code saved');
-            window.creatorEditor.clearHistory();
-        } else if (codeBlock) {
-            codeBlock.textContent = strat.code || '# No code saved';
+        secPy.style.display = strat.code ? 'block' : 'none';   // show FIRST so editor has dimensions
+        if (strat.code) {
+            if (window.creatorEditor) {
+                window.creatorEditor.setValue(strat.code || '# No code saved');
+                window.creatorEditor.clearHistory();
+                // Refresh at multiple delays — CodeMirror needs the container
+                // to have layout (width/height) before it can render correctly
+                requestAnimationFrame(() => window.creatorEditor.refresh());
+                setTimeout(() => window.creatorEditor.refresh(), 100);
+                setTimeout(() => window.creatorEditor.refresh(), 300);
+            } else if (codeBlock) {
+                codeBlock.textContent = strat.code || '# No code saved';
+            }
         }
-        secPy.style.display = strat.code ? 'block' : 'none';
     }
     if (secParams && outParams) {
         outParams.innerHTML = strat.params_text

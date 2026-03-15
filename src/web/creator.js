@@ -216,7 +216,32 @@ function getDataContext() {
     return `Pair: ${pair}. Data sources: ${checked.join(', ')}. Period: ${from} to ${to}. Interval: ${interval}. Capital: $${capital}.`;
 }
 
-function buildSystemPrompt(context) {
+function buildSystemPrompt(context, userMsg) {
+    // Detect if this strategy should use the fear_greed argument
+    const useFearGreed = /fear.?greed|fear_greed|fgi|sentiment index/i.test(userMsg || '');
+
+    const sig = useFearGreed
+        ? 'def strategy(df, unlocks, fear_greed):'
+        : 'def strategy(df, unlocks):';
+
+    const argDocs = useFearGreed
+        ? `  df          — pandas DataFrame: time (unix int), open, high, low, close, volume
+  unlocks     — pandas DataFrame with token unlock events (may be empty)
+  fear_greed  — pandas DataFrame: date (str YYYY-MM-DD), fg_value (int 0-100), fg_class (str)`
+        : `  df       — pandas DataFrame with columns: time (unix timestamp int), open, high, low, close, volume
+  unlocks  — pandas DataFrame with token unlock events (may be empty)`;
+
+    const fgMergeExample = useFearGreed ? `
+    # Merge fear & greed onto df by date
+    df['date'] = pd.to_datetime(df['time'], unit='s').dt.strftime('%Y-%m-%d')
+    df = df.merge(fear_greed[['date', 'fg_value']], on='date', how='left')
+    df['fg_value'] = df['fg_value'].fillna(50)
+` : '';
+
+    const fgCondition = useFearGreed
+        ? '        if current_rsi < oversold and df["fg_value"].iloc[i] < 40:'
+        : '        if current_rsi < oversold:';
+
     return `You are an expert quantitative trading strategy builder integrated into a crypto backtesting platform.
 The user has selected: ${context}
 
@@ -240,11 +265,10 @@ PYTHON CODE RULES — READ CAREFULLY
 ═══════════════════════════════════════════════════════
 
 The function MUST have this exact signature:
-  def strategy(df, unlocks):
+  ${sig}
 
 Arguments:
-  df       — pandas DataFrame with columns: time (unix timestamp int), open, high, low, close, volume
-  unlocks  — pandas DataFrame with token unlock events (may be empty)
+${argDocs}
 
 Return value: a Python LIST of dicts, each dict MUST have:
   entry        — unix timestamp (int) when trade opens
@@ -271,7 +295,7 @@ REFERENCE EXAMPLE — RSI MEAN REVERSION STRATEGY
 
 [Python Code]
 \`\`\`python
-def strategy(df, unlocks):
+${sig}
     trades = []
     rsi_period = 14
     oversold = 30
@@ -280,14 +304,14 @@ def strategy(df, unlocks):
 
     if len(df) < rsi_period + 2:
         return trades
-
+${fgMergeExample}
     from ta.momentum import RSIIndicator
     rsi = RSIIndicator(close=df['close'], window=rsi_period).rsi()
 
     i = rsi_period
     while i < len(df) - hold_bars - 1:
         current_rsi = rsi.iloc[i]
-        if current_rsi < oversold:
+${fgCondition}
             entry_i = i
             exit_i  = min(i + hold_bars, len(df) - 1)
             trades.append({
@@ -342,7 +366,7 @@ async function sendChat() {
     showThinking();
 
     const context = getDataContext();
-    const systemPrompt = buildSystemPrompt(context);
+    const systemPrompt = buildSystemPrompt(context, msg);
     const currentCode = window._lastStrategyCode || '';
 
     try {
@@ -390,10 +414,12 @@ async function sendChat() {
         chatHistory.push({ role: 'model', text: reply });
         if (chatHistory.length > 20) chatHistory.splice(0, 2);
 
-        // Parse sections
-        const normalised = reply.replace(/^\s*#{1,3}\s*(Algorithm|Python Code|Parameters)\s*$/gim, '[$1]');
+        // Parse sections — catch both [Label] and ## Label / **Label** variants
+        const normalised = reply
+            .replace(/^\s*\*{1,2}\s*(Algorithm|Python Code|Parameters)\s*\*{0,2}\s*:?\s*$/gim, '[$1]')
+            .replace(/^\s*#{1,3}\s*(Algorithm|Python Code|Parameters)\s*:?\s*$/gim, '[$1]');
         const algoMatch = normalised.match(/\[Algorithm\]([\s\S]*?)(?=\[Python Code\]|\[Parameters\]|$)/i);
-        const codeMatch = normalised.match(/\[Python Code\]([\s\S]*?)(?=\[Parameters\]|$)/i);
+        const codeMatch = normalised.match(/\[Python Code\]([\s\S]*?)(?=\[Parameters\]|\[Algorithm\]|$)/i);
         const paramMatch = normalised.match(/\[Parameters\]([\s\S]*?)$/i);
 
         const algoText = algoMatch ? algoMatch[1].trim() : reply;

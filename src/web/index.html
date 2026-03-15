@@ -17,7 +17,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.17/mode/python/python.min.js"></script>
   <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-  <link rel="stylesheet" href="style.css?v=27">
+  <link rel="stylesheet" href="style.css?v=28">
 </head>
 
 <body>
@@ -461,20 +461,12 @@
     <div class="panel" id="panel-initiator" role="tabpanel">
       <div class="init-wrap">
 
-        <!-- Ambient glow -->
-        <div class="init-glow init-glow-1"></div>
-        <div class="init-glow init-glow-2"></div>
-
-        <!-- Hero -->
-        <div class="init-hero">
-          <div class="init-badge">✦ Strategy Initiator</div>
-          <h1 class="init-title">What kind of strategy<br>do you want to build?</h1>
-          <p class="init-sub">Describe your idea, choose your data sources and trading pair — the AI will generate and
-            backtest it for you.</p>
-        </div>
-
-        <!-- Prompt box -->
+        <!-- Hero + Prompt combined card (so everything fits without scrolling) -->
         <div class="init-prompt-card">
+          <div class="init-hero-inline">
+            <div class="init-badge">✦ Strategy Initiator</div>
+            <h1 class="init-title">What kind of strategy do you want to build?</h1>
+          </div>
           <textarea id="initPrompt" class="init-textarea"
             placeholder="e.g. Go long when Fear &amp; Greed drops below 20 and STRK RSI is oversold. Exit after 5 days or when RSI recovers above 50."
             rows="3"></textarea>
@@ -810,13 +802,13 @@
     </div>
   </div>
 
-  <script src="app.js?v=5"></script>
-  <script src="resize.js?v=5"></script>
-  <script src="backtest.js?v=5"></script>
-  <script src="creator.js?v=5"></script>
-  <script src="library.js?v=5"></script>
-  <script src="bot.js?v=5"></script>
-  <script src="initiator.js?v=2"></script>
+  <script src="app.js?v=6"></script>
+  <script src="resize.js?v=6"></script>
+  <script src="backtest.js?v=6"></script>
+  <script src="creator.js?v=6"></script>
+  <script src="library.js?v=6"></script>
+  <script src="bot.js?v=6"></script>
+  <script src="initiator.js?v=3"></script>
 
   <!-- Particle canvas -->
   <canvas id="particleCanvas" style="position:fixed;inset:0;pointer-events:none;z-index:0;opacity:.3"></canvas>

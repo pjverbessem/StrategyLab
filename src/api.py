@@ -1060,7 +1060,7 @@ def kraken_status():
 # ── GEMINI AI CHAT ────────────────────────────────────────────────────────────
 # ══════════════════════════════════════════════════════════════════════════════
 
-GEMINI_MODEL = "gemini-2.0-flash"
+GEMINI_MODEL = "gemini-2.5-flash"
 
 class ChatRequest(BaseModel):
     message:      str

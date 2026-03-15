@@ -270,6 +270,52 @@ def coins(min_rank: Optional[int] = None, max_rank: Optional[int] = None,
     return [{**dict(r), "in_db": r["kraken_pair"] in loaded if r["kraken_pair"] else False} for r in rows]
 
 
+@app.get("/api/fear-greed/latest")
+def fear_greed_latest():
+    """Return the most recent Fear & Greed reading."""
+    conn = db()
+    row = conn.execute(
+        "SELECT date, timestamp_utc, value, classification, source "
+        "FROM fear_greed ORDER BY date DESC LIMIT 1"
+    ).fetchone()
+    conn.close()
+    if not row:
+        return {"error": "No Fear & Greed data found. Run src/fetch_fear_greed.py first."}
+    return dict(row)
+
+
+@app.get("/api/fear-greed")
+def fear_greed(
+    start: Optional[str] = None,
+    end:   Optional[str] = None,
+    limit: int = 365,
+):
+    """
+    Return daily Fear & Greed Index values.
+
+    Query params:
+      start  ISO date string e.g. '2024-01-01'  (inclusive)
+      end    ISO date string e.g. '2025-01-01'  (inclusive)
+      limit  max rows to return (default 365, max 5000)
+    """
+    conn = db()
+    conds: list[str] = []
+    params: list = []
+    if start:
+        conds.append("date >= ?"); params.append(start)
+    if end:
+        conds.append("date <= ?"); params.append(end)
+    where = ("WHERE " + " AND ".join(conds)) if conds else ""
+    params.append(min(limit, 5000))
+    rows = conn.execute(
+        f"SELECT date, timestamp_utc, value, classification, source "
+        f"FROM fear_greed {where} ORDER BY date ASC LIMIT ?",
+        params,
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # ── BACKTESTING ───────────────────────────────────────────────────────────────
 # ══════════════════════════════════════════════════════════════════════════════
@@ -317,10 +363,16 @@ def run_backtest(req: BacktestRequest):
             "SELECT date AS time, daily_new_tokens, cumulative_tokens, "
             "has_cliff_event, cliff_event_tokens, inflation_pct_of_supply "
             "FROM token_unlocks WHERE pair = ? ORDER BY date ASC", (pair,)).fetchall()
+
+        # ── Fear & Greed index ──
+        fg_rows = conn.execute(
+            "SELECT date, value AS fg_value, classification AS fg_class "
+            "FROM fear_greed ORDER BY date ASC").fetchall()
         conn.close()
 
         df      = pd.DataFrame([dict(r) for r in ohlcvt_rows])
         unlocks = pd.DataFrame([dict(r) for r in unlock_rows])
+        fear_greed_df = pd.DataFrame([dict(r) for r in fg_rows]) if fg_rows else pd.DataFrame(columns=["date","fg_value","fg_class"])
 
         if df.empty:
             return {"error": "No OHLCVT data for the selected pair/interval/range.",
@@ -343,7 +395,13 @@ def run_backtest(req: BacktestRequest):
             return {"error": "❌ Script must define a function named strategy(df, unlocks)",
                     "trades": [], "equity": [], "stats": {}}
 
-        raw_trades = ns["strategy"](df.copy(), unlocks.copy())
+        # Call strategy() — pass fear_greed_df if the function accepts 3+ args
+        import inspect
+        sig = inspect.signature(ns["strategy"])
+        if len(sig.parameters) >= 3:
+            raw_trades = ns["strategy"](df.copy(), unlocks.copy(), fear_greed_df.copy())
+        else:
+            raw_trades = ns["strategy"](df.copy(), unlocks.copy())
 
         if not isinstance(raw_trades, list):
             return {"error": "❌ strategy() must return a list of trade dicts",

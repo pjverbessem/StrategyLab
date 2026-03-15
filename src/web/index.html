@@ -38,7 +38,7 @@
           <span class="bot-tab-dot" id="botTabDot" style="display:none"></span>
         </button>
         <button class="tab-btn" data-panel="sources" role="tab">Data Sources</button>
-        <button class="tab-btn" data-panel="backing" role="tab">Backtesting</button>
+
       </div>
       <div class="nav-right">
         <div class="live-ticker" id="liveTicker">
@@ -744,38 +744,6 @@
       </div>
     </div>
 
-    <!-- ══ BACKTESTING PANEL ═══════════════════════════════════════ -->
-    <div class="panel" id="panel-backing" role="tabpanel">
-      <div class="list-page-wrap">
-        <div class="list-page">
-          <div class="list-page-header">
-            <h1 class="list-page-title">Strategy Editor</h1>
-            <div class="list-search-wrap">
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-                <circle cx="7" cy="7" r="4.5" stroke="#71717A" stroke-width="1.5" />
-                <path d="M10.5 10.5L13 13" stroke="#71717A" stroke-width="1.5" stroke-linecap="round" />
-              </svg>
-              <input type="text" class="list-search" id="stratSearchBacking" placeholder="Search for strategy">
-            </div>
-            <button class="btn-outline" id="newStrategyBtn">+ New Strategy</button>
-          </div>
-          <div class="strategy-list" id="strategyList">
-            <div class="strategy-card" data-strategy="rsi">
-              <div class="strat-header"><span class="strat-name">RSI Divergence Strategy</span><span
-                  class="strat-coin">ARB/USD</span></div>
-              <div class="strat-desc">Goes long when RSI &lt; 30, short when RSI &gt; 70. Classic mean-reversion.
-                14-period RSI on daily candles.</div>
-              <div class="strat-meta">
-                <div class="strat-metric"><span>Return</span><strong>—</strong></div>
-                <div class="strat-metric"><span>Sharpe</span><strong>—</strong></div>
-                <div class="strat-metric"><span>Drawdown</span><strong>—</strong></div>
-                <div class="strat-metric"><span>Win Rate</span><strong>—</strong></div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
 
   </div><!-- /app-shell -->
 

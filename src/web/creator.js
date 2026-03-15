@@ -57,30 +57,7 @@ function wireSearch(inputId, listSelector) {
     });
 }
 wireSearch('sourceSearch', '#sourceList .source-card');
-wireSearch('stratSearchBacking', '#strategyList .strategy-card');
 
-// ── Backing: New Strategy → jump to Creator ───────────────────────────────────
-document.getElementById('newStrategyBtn')?.addEventListener('click', () => {
-    switchToPanel('creator');
-    document.getElementById('chatInput')?.focus();
-});
-
-// ── Strategy cards in Backing → load into Creator ─────────────────────────────
-document.querySelectorAll('.strategy-card').forEach(card => {
-    card.addEventListener('click', () => {
-        const prompts = {
-            rsi: 'Load the RSI Divergence strategy: long when RSI < 30, short when RSI > 70 on daily candles.',
-            news: 'Load the News Trading strategy based on VADER sentiment signals ≥0.65.',
-            unlock: 'Load the Unlock Trading strategy: short 3 days before major unlock events, cover 1 day after.'
-        };
-        const key = card.dataset.strategy;
-        if (prompts[key]) {
-            switchToPanel('creator');
-            const input = document.getElementById('chatInput');
-            if (input) { input.value = prompts[key]; input.focus(); }
-        }
-    });
-});
 
 function switchToPanel(name) {
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -224,23 +201,27 @@ function buildSystemPrompt(context, userMsg) {
         ? 'def strategy(df, unlocks, fear_greed):'
         : 'def strategy(df, unlocks):';
 
+    const dfCols = useFearGreed
+        ? `  df columns: time (unix int), open, high, low, close, volume,
+             date (str YYYY-MM-DD), fg_value (int 0-100), fg_class (str)
+             NOTE: fg_value and fg_class are ALREADY merged onto df — do NOT try to merge them again.
+             Just use df['fg_value'].iloc[i] directly.`
+        : `  df columns: time (unix int), open, high, low, close, volume`;
+
     const argDocs = useFearGreed
-        ? `  df          — pandas DataFrame: time (unix int), open, high, low, close, volume
-  unlocks     — pandas DataFrame with token unlock events (may be empty)
-  fear_greed  — pandas DataFrame: date (str YYYY-MM-DD), fg_value (int 0-100), fg_class (str)`
+        ? `  df         — pandas DataFrame (see columns above)
+  unlocks    — pandas DataFrame with token unlock events (may be empty)
+  fear_greed — IGNORE THIS ARGUMENT. fg_value is already in df. Do not use fear_greed directly.`
         : `  df       — pandas DataFrame with columns: time (unix timestamp int), open, high, low, close, volume
   unlocks  — pandas DataFrame with token unlock events (may be empty)`;
 
-    const fgMergeExample = useFearGreed ? `
-    # Merge fear & greed onto df by date
-    df['date'] = pd.to_datetime(df['time'], unit='s').dt.strftime('%Y-%m-%d')
-    df = df.merge(fear_greed[['date', 'fg_value']], on='date', how='left')
-    df['fg_value'] = df['fg_value'].fillna(50)
-` : '';
-
     const fgCondition = useFearGreed
-        ? '        if current_rsi < oversold and df["fg_value"].iloc[i] < 40:'
-        : '        if current_rsi < oversold:';
+        ? `        if df['fg_value'].iloc[i] < fgi_threshold and current_rsi < rsi_threshold:`
+        : `        if current_rsi < rsi_threshold:`;
+
+    const fgMergeExample = useFearGreed
+        ? `    fgi_threshold = 30   # entry when Fear & Greed index is below this\n`
+        : '';
 
     return `You are an expert quantitative trading strategy builder integrated into a crypto backtesting platform.
 The user has selected: ${context}
@@ -414,29 +395,46 @@ async function sendChat() {
         chatHistory.push({ role: 'model', text: reply });
         if (chatHistory.length > 20) chatHistory.splice(0, 2);
 
-        // Parse sections — catch both [Label] and ## Label / **Label** variants
+        // Parse sections — normalise [Label], ## Label, and **Label** variants to [Label]
         const normalised = reply
             .replace(/^\s*\*{1,2}\s*(Algorithm|Python Code|Parameters)\s*\*{0,2}\s*:?\s*$/gim, '[$1]')
             .replace(/^\s*#{1,3}\s*(Algorithm|Python Code|Parameters)\s*:?\s*$/gim, '[$1]');
-        const algoMatch = normalised.match(/\[Algorithm\]([\s\S]*?)(?=\[Python Code\]|\[Parameters\]|$)/i);
-        const codeMatch = normalised.match(/\[Python Code\]([\s\S]*?)(?=\[Parameters\]|\[Algorithm\]|$)/i);
-        const paramMatch = normalised.match(/\[Parameters\]([\s\S]*?)$/i);
 
-        const algoText = algoMatch ? algoMatch[1].trim() : reply;
-        let rawCode = codeMatch ? codeMatch[1].trim() : '';
-        const paramText = paramMatch ? paramMatch[1].trim() : '';
+        // Section boundaries: label appears at start of line
+        const sectionRe = /\[(Algorithm|Python Code|Parameters)\]/gi;
+        const sections = {};
+        let m2, lastKey = null, lastIdx = 0;
+        const normCopy = normalised;
+        sectionRe.lastIndex = 0;
+        while ((m2 = sectionRe.exec(normCopy)) !== null) {
+            if (lastKey) sections[lastKey] = normCopy.slice(lastIdx, m2.index).trim();
+            lastKey = m2[1].toLowerCase().replace(' ', '_');
+            lastIdx = m2.index + m2[0].length;
+        }
+        if (lastKey) sections[lastKey] = normCopy.slice(lastIdx).trim();
 
-        // Strip code fences
+        const algoText = sections['algorithm'] || reply;
+        let rawCode = sections['python_code'] || '';
+        const paramText = sections['parameters'] || '';
+
+        // Strip code fences — handle ```python, ```py, ``` (with or without lang tag)
         function extractCode(raw) {
             const fenceOpen = raw.indexOf('```');
             if (fenceOpen === -1) return raw.trim();
+            // skip the opening fence line (e.g. ```python)
             const afterOpen = raw.indexOf('\n', fenceOpen);
-            if (afterOpen === -1) return raw.trim();
+            if (afterOpen === -1) return raw.slice(fenceOpen + 3).trim();
             const body = raw.slice(afterOpen + 1);
             const lastFence = body.lastIndexOf('\n```');
             return (lastFence !== -1 ? body.slice(0, lastFence) : body).trim();
         }
         rawCode = extractCode(rawCode);
+
+        // Fallback: if section parse found nothing, scan entire reply for def strategy block
+        if (!rawCode) {
+            const wholeMatch = normalised.match(/```(?:python)?\n([\s\S]*?def strategy[\s\S]*?)```/);
+            if (wholeMatch) rawCode = wholeMatch[1].trim();
+        }
 
         const renderText = t => t
             .replace(/#{1,3}\s*/g, '')

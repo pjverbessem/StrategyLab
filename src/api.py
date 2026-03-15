@@ -395,6 +395,17 @@ def run_backtest(req: BacktestRequest):
             return {"error": "❌ Script must define a function named strategy(df, unlocks)",
                     "trades": [], "equity": [], "stats": {}}
 
+        # ── Pre-merge Fear & Greed into df so strategy() can use fg_value directly ──
+        if not fear_greed_df.empty and not df.empty:
+            df['date'] = pd.to_datetime(df['time'], unit='s').dt.strftime('%Y-%m-%d')
+            df = df.merge(fear_greed_df[['date', 'fg_value', 'fg_class']], on='date', how='left')
+            df['fg_value'] = df['fg_value'].fillna(50).astype(int)   # neutral 50 if missing
+            df['fg_class'] = df['fg_class'].fillna('Neutral')
+        else:
+            df['date'] = pd.to_datetime(df['time'], unit='s').dt.strftime('%Y-%m-%d')
+            df['fg_value'] = 50
+            df['fg_class'] = 'Neutral'
+
         # Call strategy() — pass fear_greed_df if the function accepts 3+ args
         import inspect
         sig = inspect.signature(ns["strategy"])
@@ -1131,19 +1142,29 @@ def chat(req: ChatRequest):
                 contents.append({"role": h["role"], "parts": [{"text": h["text"]}]})
         contents.append({"role": "user", "parts": [{"text": req.message}]})
 
-        cfg = genai_types.GenerateContentConfig(
-            system_instruction=system_prompt,
-            temperature=0.2,   # low temp = deterministic, correct code
-        )
+        # Build config — try with thinking disabled (fast), fall back without it
+        try:
+            cfg = genai_types.GenerateContentConfig(
+                system_instruction=system_prompt,
+                temperature=0.2,
+                thinking_config=genai_types.ThinkingConfig(thinking_budget=0),
+            )
+        except Exception:
+            cfg = genai_types.GenerateContentConfig(
+                system_instruction=system_prompt,
+                temperature=0.2,
+            )
 
         response = client.models.generate_content(
             model=GEMINI_MODEL, contents=contents, config=cfg
         )
-        reply = response.text
+        reply = response.text or ""
+        print(f"[CHAT] raw reply ({len(reply)} chars):\n{reply[:500]}\n---")
 
-        # ── Auto-debug loop (LuxAlgo-style): if code looks like a skeleton, retry ──
+        # ── Auto-debug loop: if code looks like a skeleton, do one retry ──
         code = _extract_code_from_reply(reply)
         if not _code_looks_complete(code):
+            print("[CHAT] code incomplete — retrying for full implementation")
             fix_prompt = (
                 "The Python code you just gave me is incomplete — it only contains a skeleton or stub. "
                 "Please write the FULL, COMPLETE implementation of the strategy() function with ALL the "
@@ -1158,7 +1179,8 @@ def chat(req: ChatRequest):
             fix_response = client.models.generate_content(
                 model=GEMINI_MODEL, contents=fix_contents, config=cfg
             )
-            reply = fix_response.text
+            reply = fix_response.text or reply  # keep original if retry also blank
+            print(f"[CHAT] retry reply ({len(reply)} chars):\n{reply[:500]}\n---")
 
         return {"reply": reply, "error": None}
 

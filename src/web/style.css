@@ -3735,3 +3735,417 @@ pre#codeBlock {
   padding-top: 24px !important;
   gap: 16px !important;
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   WORKFLOW BUILDER  ·  Visual no-code strategy editor
+═══════════════════════════════════════════════════════════════ */
+
+/* ── View-toggle pill ────────────────────────────────────────── */
+.view-toggle {
+  display: flex;
+  gap: 2px;
+  background: var(--s2);
+  border-radius: 6px;
+  padding: 2px;
+}
+
+.view-toggle-btn {
+  padding: 3px 10px;
+  border: none;
+  background: transparent;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--t3);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background .15s, color .15s;
+  letter-spacing: .02em;
+}
+
+.view-toggle-btn.active {
+  background: #fff;
+  color: var(--t1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .10);
+}
+
+.view-toggle-btn:hover:not(.active) {
+  color: var(--t2);
+}
+
+/* ── Workflow panel container ────────────────────────────────── */
+.wf-view-panel {
+  overflow-y: auto;
+  padding: 12px 14px 20px;
+}
+
+.workflow-builder {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  font-size: 11.5px;
+}
+
+/* ── Header bar ──────────────────────────────────────────────── */
+.wf-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.wf-header-title {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  color: var(--t3);
+  flex: 1;
+}
+
+.wf-regen-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--t3);
+  padding: 2px 7px;
+  background: var(--s2);
+  border-radius: 10px;
+  animation: fadeIn .2s ease;
+}
+
+.wf-btn-add-rule {
+  padding: 4px 10px;
+  border: 1px dashed var(--border-hi);
+  background: transparent;
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--t2);
+  cursor: pointer;
+  transition: background .15s, color .15s;
+}
+
+.wf-btn-add-rule:hover {
+  background: var(--s1);
+  color: var(--t1);
+}
+
+/* ── Rule block ──────────────────────────────────────────────── */
+.wf-rule {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+  overflow: hidden;
+  margin-bottom: 10px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .04);
+  transition: opacity .2s;
+}
+
+.wf-rule--disabled {
+  opacity: .45;
+}
+
+.wf-rule-hdr {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 10px 7px 12px;
+  background: var(--s1);
+  border-bottom: 1px solid var(--border);
+}
+
+.wf-rule-num {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--t3);
+}
+
+.wf-rule-hdr-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.wf-icon-btn {
+  width: 20px;
+  height: 20px;
+  border: none;
+  background: transparent;
+  border-radius: 4px;
+  font-size: 13px;
+  color: var(--t3);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background .15s, color .15s;
+}
+
+.wf-icon-btn:hover {
+  background: var(--s3);
+  color: var(--t1);
+}
+
+/* ── Section (ENTRY / EXIT) ──────────────────────────────────── */
+.wf-section {
+  padding: 10px 12px 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.wf-section--exit {
+  border-bottom: none;
+}
+
+.wf-section-hdr {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.wf-section-label {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  color: var(--t3);
+  flex: 1;
+}
+
+.wf-logic-toggle {
+  padding: 2px 8px;
+  border: 1px solid var(--border-hi);
+  background: var(--s2);
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  color: var(--t2);
+  cursor: pointer;
+  transition: background .15s;
+}
+
+.wf-logic-toggle:hover {
+  background: var(--s3);
+}
+
+/* ── Connector (AND / OR label between conditions) ───────────── */
+.wf-connector {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--t4, #aaa);
+  text-align: left;
+  padding: 2px 4px;
+  margin: 2px 0;
+}
+
+/* ── Condition row ───────────────────────────────────────────── */
+.wf-cond-row,
+.wf-exit-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 6px 8px;
+  background: var(--s1);
+  border-radius: 6px;
+  margin-bottom: 6px;
+  border: 1px solid var(--border);
+}
+
+/* ── Action row ──────────────────────────────────────────────── */
+.wf-action-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--s2);
+  border-bottom: 1px solid var(--border);
+}
+
+.wf-section-arrow {
+  font-size: 10px;
+  color: var(--t3);
+}
+
+/* ── Indicator / operator selects ────────────────────────────── */
+.wf-ind-select,
+.wf-op-select,
+.wf-action-select,
+.wf-exit-type-select {
+  border: 1px solid var(--border-hi);
+  background: #fff;
+  border-radius: 4px;
+  padding: 3px 6px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--t1);
+  cursor: pointer;
+  appearance: auto;
+  min-width: 0;
+  max-width: 120px;
+  transition: border-color .15s;
+}
+
+.wf-ind-select:focus,
+.wf-op-select:focus,
+.wf-action-select:focus,
+.wf-exit-type-select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.wf-action-select {
+  background: var(--t1);
+  color: #fff;
+  font-weight: 600;
+  border-color: transparent;
+  max-width: 140px;
+}
+
+/* ── Parameter wrap (label + number + slider) ────────────────── */
+.wf-indicator-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 100px;
+}
+
+.wf-param-wrap {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: nowrap;
+}
+
+.wf-param-label {
+  font-size: 9.5px;
+  font-weight: 500;
+  color: var(--t3);
+  white-space: nowrap;
+}
+
+.wf-param-number {
+  width: 46px;
+  padding: 2px 5px;
+  border: 1px solid var(--border-hi);
+  border-radius: 3px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--t1);
+  background: #fff;
+  text-align: center;
+}
+
+.wf-param-number:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.wf-param-slider {
+  flex: 1;
+  min-width: 50px;
+  height: 3px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+/* ── Right side toggle buttons (#  vs  ≈) ────────────────────── */
+.wf-right-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+
+.wf-right-toggle {
+  display: flex;
+  gap: 2px;
+}
+
+.wf-right-btn {
+  padding: 2px 7px;
+  border: 1px solid var(--border-hi);
+  background: var(--s1);
+  border-radius: 3px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--t2);
+  cursor: pointer;
+  transition: background .12s, color .12s;
+}
+
+.wf-right-btn.active {
+  background: var(--t1);
+  color: #fff;
+  border-color: var(--t1);
+}
+
+.wf-right-btn:hover:not(.active) {
+  background: var(--s2);
+}
+
+/* ── Add condition button ─────────────────────────────────────── */
+.wf-btn-add-cond {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+  padding: 4px;
+  border: 1px dashed var(--border);
+  background: transparent;
+  border-radius: 4px;
+  font-size: 10.5px;
+  color: var(--t3);
+  cursor: pointer;
+  text-align: center;
+  transition: background .15s, color .15s;
+}
+
+.wf-btn-add-cond:hover {
+  background: var(--s1);
+  color: var(--t2);
+  border-color: var(--border-hi);
+}
+
+/* ── Exit params ─────────────────────────────────────────────── */
+.wf-exit-params {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+  flex: 1;
+}
+
+/* ── Footer hint ─────────────────────────────────────────────── */
+.wf-footer {
+  padding: 4px 0;
+  text-align: center;
+}
+
+.wf-footer-hint {
+  font-size: 10px;
+  color: var(--t4, #bbb);
+  font-style: italic;
+}
+
+/* ── Delete condition/exit button ────────────────────────────── */
+.wf-del-cond {
+  align-self: flex-start;
+  color: var(--t4, #bbb);
+  margin-top: 2px;
+}
+
+.wf-del-cond:hover {
+  color: var(--neg);
+}
+
+.wf-del-rule {
+  font-size: 16px;
+}

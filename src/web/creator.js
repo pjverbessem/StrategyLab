@@ -285,10 +285,44 @@ The user has selected: ${context}
 CRITICAL OUTPUT FORMAT — YOU MUST FOLLOW THIS EXACTLY
 ═══════════════════════════════════════════════════════
 
-Respond using EXACTLY these three labelled sections:
+Respond using EXACTLY these four labelled sections:
 
 [Algorithm]
 A clear 3-5 sentence plain-English explanation of the trading logic.
+
+[Workflow JSON]
+A JSON object representing the strategy as structured IF/THEN rules. Use this schema:
+{
+  "version": 1,
+  "name": "Strategy Name",
+  "rules": [{
+    "id": "rule-1",
+    "enabled": true,
+    "entry": {
+      "logic": "AND",
+      "conditions": [{
+        "id": "c1",
+        "left": { "indicator": "rsi", "params": { "period": 14 } },
+        "op": "<",
+        "right": { "type": "value", "value": 30 }
+      }]
+    },
+    "action": "BUY (long)",
+    "exit": {
+      "logic": "OR",
+      "conditions": [{
+        "id": "e1",
+        "type": "rsi_overbought",
+        "params": { "period": 14, "threshold": 70 }
+      }]
+    }
+  }]
+}
+Indicators: price, sma, ema, rsi, macd, bbands, volume, fg (Fear&Greed), pct_change
+Ops: >, <, >=, <=, ==, crosses above, crosses below
+Actions: BUY (long), SELL (short), CLOSE
+Exit types: rsi_overbought, rsi_oversold, take_profit, stop_loss, bars_held, crosses_back
+Wrap the JSON in \`\`\`json ... \`\`\` fences.
 
 [Python Code]
 A COMPLETE, FULLY-IMPLEMENTED Python function. NOT a skeleton. NOT a stub. REAL working code.
@@ -381,7 +415,7 @@ NOW GENERATE THE STRATEGY REQUESTED BY THE USER
 
 Write the FULL, COMPLETE implementation — every indicator calculation, every loop, every condition.
 Your code will be executed directly in a Python sandbox. It must run without errors.
-Do NOT use markdown headers (###) — only use [Algorithm], [Python Code], [Parameters] labels.`;
+Do NOT use markdown headers (###) — only use [Algorithm], [Workflow JSON], [Python Code], [Parameters] labels.`;
 }
 
 // Refinement prompt — for follow-up messages when code already exists
@@ -427,7 +461,7 @@ async function sendChat() {
     const imageMime = _pendingImageMime;
 
     // Show user message with image indicator
-    appendMsg('user', `${msg.replace(/</g, '&lt;').replace(/>/g, '&gt;')}${hasImage ? ' <span style="opacity:.7;font-size:11px">📷 chart attached</span>' : ''}`);
+    appendMsg('user', `${ msg.replace(/</g, '&lt;').replace(/>/g, '&gt;') }${ hasImage ? ' <span style="opacity:.7;font-size:11px">📷 chart attached</span>' : '' } `);
     if (hasImage) clearImage();
     showThinking();
 
@@ -469,11 +503,11 @@ async function sendChat() {
         }
 
         hideThinking();
-        if (!res.ok) throw new Error(`Server error ${res.status}`);
+        if (!res.ok) throw new Error(`Server error ${ res.status } `);
         data = await res.json();
 
         if (data.error && !data.reply) {
-            appendMsg('assistant', `<span style="color:var(--neg)">⚠️ ${data.error}</span>`);
+            appendMsg('assistant', `< span style = "color:var(--neg)" >⚠️ ${ data.error }</span > `);
             chatSend.disabled = false;
             return;
         }
@@ -491,7 +525,7 @@ async function sendChat() {
         console.log('[AI reply] length:', reply.length, '\nfirst 300:', reply.slice(0, 300));
 
         // Section boundaries: walk through all [Label] occurrences in order
-        const sectionRe = /\[(Algorithm|Python Code|Parameters)\]/gi;
+        const sectionRe = /\[(Algorithm|Workflow JSON|Python Code|Parameters)\]/gi;
         const sections = {};
         let m2, lastKey = null, lastIdx = 0;
         sectionRe.lastIndex = 0;
@@ -508,97 +542,109 @@ async function sendChat() {
         let rawCode = sections['python_code'] || '';
         const paramText = sections['parameters'] || '';
 
-        // Strip code fences — handle ```python, ```py, ``` (with or without lang tag)
-        function extractCode(raw) {
-            const fenceOpen = raw.indexOf('```');
-            if (fenceOpen === -1) return raw.trim();
-            // skip the opening fence line (e.g. ```python)
-            const afterOpen = raw.indexOf('\n', fenceOpen);
-            if (afterOpen === -1) return raw.slice(fenceOpen + 3).trim();
-            const body = raw.slice(afterOpen + 1);
-            const lastFence = body.lastIndexOf('\n```');
-            return (lastFence !== -1 ? body.slice(0, lastFence) : body).trim();
-        }
-        rawCode = extractCode(rawCode);
-
-        console.log('[rawCode after extractCode] length:', rawCode.length, rawCode.slice(0, 100));
-
-        // Fallback 1: scan entire reply for a fenced code block containing def strategy
-        if (!rawCode) {
-            const wholeMatch = normalised.match(/```(?:python)?\n([\s\S]+?def strategy[\s\S]+?)\n```/);
-            if (wholeMatch) { rawCode = wholeMatch[1].trim(); console.log('[fallback1 hit]'); }
-        }
-        // Fallback 2: extract the raw def strategy...return trades block without fences
-        if (!rawCode) {
-            const defMatch = normalised.match(/(def strategy\([\s\S]+?return trades)/);
-            if (defMatch) { rawCode = defMatch[1].trim(); console.log('[fallback2 hit]'); }
-        }
-
-        const renderText = t => t
-            .replace(/#{1,3}\s*/g, '')
-            .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-            .replace(/\n/g, '<br>');
-
-        appendMsg('assistant', renderText(algoText));
-
-        // ── Populate right column (col-code) ──────────────────────
-        const emptyState = document.getElementById('codeEmptyState');
-        if (emptyState) emptyState.style.display = 'none';
-
-        // Algorithm section
-        const secAlgo = document.getElementById('code-section-algo');
-        const outAlgo = document.getElementById('out-algo');
-        if (secAlgo && outAlgo) {
-            outAlgo.innerHTML = `<p>${renderText(algoText)}</p>`;
-            secAlgo.style.display = 'block';
-        }
-
-        // Python code section — populate editor and hidden pre
-        const secPy = document.getElementById('code-section-py');
-        const codeBlock = document.getElementById('codeBlock');
-        if (secPy) {
-            // Prefer the CodeMirror editor; fallback to pre
-            if (window.creatorEditor) {
-                window.creatorEditor.setValue(rawCode || '');
-                window.creatorEditor.clearHistory();
-            } else if (codeBlock) {
-                codeBlock.textContent = rawCode || '# No code generated yet';
-            }
-            secPy.style.display = rawCode ? 'block' : 'none';
-        }
-
-        // Parameters section
-        const secParams = document.getElementById('code-section-params');
-        const outParams = document.getElementById('out-params');
-        if (secParams && outParams) {
-            outParams.innerHTML = paramText
-                ? `<p>${renderText(paramText)}</p>`
-                : '<p style="color:var(--t3)">No parameters listed.</p>';
-            secParams.style.display = 'block';
-        }
-
-        window._lastStrategyCode = rawCode;
-        window._lastStrategyAlgo = algoText;
-        window._lastStrategyParams = paramText;
-        if (rawCode) _historyPush(rawCode);  // track in version history
-
-        // Notify CodeMirror editor (in case it initialised after this)
-        window.dispatchEvent(new Event('strategyGenerated'));
-
-        // Update topbar name pill → unsaved
-        window.setStrategyName?.('Unsaved Strategy', false);
-        const topbarSaveBtn = document.getElementById('saveStratTopbarBtn');
-        if (topbarSaveBtn && rawCode) topbarSaveBtn.style.display = 'flex';
-
-        // Show save button in code column header
-        const saveBtn = document.getElementById('saveChatStratBtn');
-        if (saveBtn && rawCode) saveBtn.style.display = 'flex';
-
-    } catch (err) {
-        hideThinking();
-        appendMsg('assistant', `<span style="color:var(--neg)">Error: ${err.message}. Please try again.</span>`);
+        // Strip code fences — handle ```python, ```py, ```(with or without lang tag)
+    function extractCode(raw) {
+        const fenceOpen = raw.indexOf('```');
+        if (fenceOpen === -1) return raw.trim();
+        // skip the opening fence line (e.g. ```python)
+        const afterOpen = raw.indexOf('\n', fenceOpen);
+        if (afterOpen === -1) return raw.slice(fenceOpen + 3).trim();
+        const body = raw.slice(afterOpen + 1);
+        const lastFence = body.lastIndexOf('\n```');
+        return (lastFence !== -1 ? body.slice(0, lastFence) : body).trim();
     }
-    chatSend.disabled = false;
+    rawCode = extractCode(rawCode);
+
+    console.log('[rawCode after extractCode] length:', rawCode.length, rawCode.slice(0, 100));
+
+    // Fallback 1: scan entire reply for a fenced code block containing def strategy
+    if (!rawCode) {
+        const wholeMatch = normalised.match(/```(?:python)?\n([\s\S]+?def strategy[\s\S]+?)\n```/);
+        if (wholeMatch) { rawCode = wholeMatch[1].trim(); console.log('[fallback1 hit]'); }
+    }
+    // Fallback 2: extract the raw def strategy...return trades block without fences
+    if (!rawCode) {
+        const defMatch = normalised.match(/(def strategy\([\s\S]+?return trades)/);
+        if (defMatch) { rawCode = defMatch[1].trim(); console.log('[fallback2 hit]'); }
+    }
+
+    const renderText = t => t
+        .replace(/#{1,3}\s*/g, '')
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\n/g, '<br>');
+
+    appendMsg('assistant', renderText(algoText));
+
+    // ── Populate right column (col-code) ──────────────────────
+    const emptyState = document.getElementById('codeEmptyState');
+    if (emptyState) emptyState.style.display = 'none';
+
+    // Algorithm section
+    const secAlgo = document.getElementById('code-section-algo');
+    const outAlgo = document.getElementById('out-algo');
+    if (secAlgo && outAlgo) {
+        outAlgo.innerHTML = `<p>${renderText(algoText)}</p>`;
+        secAlgo.style.display = 'block';
+    }
+
+    // Python code section — populate editor and hidden pre
+    const secPy = document.getElementById('code-section-py');
+    const codeBlock = document.getElementById('codeBlock');
+    if (secPy) {
+        // Prefer the CodeMirror editor; fallback to pre
+        if (window.creatorEditor) {
+            window.creatorEditor.setValue(rawCode || '');
+            window.creatorEditor.clearHistory();
+        } else if (codeBlock) {
+            codeBlock.textContent = rawCode || '# No code generated yet';
+        }
+        secPy.style.display = rawCode ? 'block' : 'none';
+    }
+
+    // Parameters section
+    const secParams = document.getElementById('code-section-params');
+    const outParams = document.getElementById('out-params');
+    if (secParams && outParams) {
+        outParams.innerHTML = paramText
+            ? `<p>${renderText(paramText)}</p>`
+            : '<p style="color:var(--t3)">No parameters listed.</p>';
+        secParams.style.display = 'block';
+    }
+
+    window._lastStrategyCode = rawCode;
+    window._lastStrategyAlgo = algoText;
+    window._lastStrategyParams = paramText;
+    if (rawCode) _historyPush(rawCode);  // track in version history
+
+    // Parse and load workflow JSON from AI response
+    const wfRaw = sections['workflow_json'] || '';
+    if (wfRaw && window.parseWorkflowFromAI) {
+        const wfJSON = window.parseWorkflowFromAI(wfRaw);
+        if (wfJSON) {
+            window._lastWorkflowJSON = wfJSON;
+            window._workflowBuilder?.load(wfJSON);
+            // Auto-switch to workflow view
+            document.getElementById('view-wf-btn')?.click();
+        }
+    }
+
+    // Notify CodeMirror editor (in case it initialised after this)
+    window.dispatchEvent(new Event('strategyGenerated'));
+
+    // Update topbar name pill → unsaved
+    window.setStrategyName?.('Unsaved Strategy', false);
+    const topbarSaveBtn = document.getElementById('saveStratTopbarBtn');
+    if (topbarSaveBtn && rawCode) topbarSaveBtn.style.display = 'flex';
+
+    // Show save button in code column header
+    const saveBtn = document.getElementById('saveChatStratBtn');
+    if (saveBtn && rawCode) saveBtn.style.display = 'flex';
+
+} catch (err) {
+    hideThinking();
+    appendMsg('assistant', `<span style="color:var(--neg)">Error: ${err.message}. Please try again.</span>`);
+}
+chatSend.disabled = false;
 }
 
 chatSend?.addEventListener('click', sendChat);

@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link
-    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap"
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400;1,600&display=swap"
     rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.17/codemirror.min.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.17/theme/dracula.min.css">
@@ -17,7 +17,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.17/mode/python/python.min.js"></script>
   <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-  <link rel="stylesheet" href="style.css?v=28">
+  <link rel="stylesheet" href="style.css?v=2000">
 </head>
 
 <body>
@@ -226,6 +226,23 @@
                 <div class="code-section-label">
                   Python Code <span class="code-section-tag">Strategy</span>
                   <div style="display:flex;gap:5px;align-items:center">
+                    <!-- History navigation -->
+                    <div class="code-history-nav" id="codeHistoryNav" style="display:none">
+                      <button class="btn-update-code" id="codeHistPrev" title="Previous version" disabled>
+                        <svg width="9" height="9" viewBox="0 0 12 12" fill="none">
+                          <path d="M8 2L4 6l4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+                            stroke-linejoin="round" />
+                        </svg>
+                      </button>
+                      <span class="code-hist-counter" id="codeHistCounter">1 / 1</span>
+                      <button class="btn-update-code" id="codeHistNext" title="Next version" disabled>
+                        <svg width="9" height="9" viewBox="0 0 12 12" fill="none">
+                          <path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+                            stroke-linejoin="round" />
+                        </svg>
+                      </button>
+                    </div>
+                    <div class="code-btn-sep" id="codeHistSep" style="display:none"></div>
                     <button class="btn-update-code" id="regenCodeBtn" title="Regenerate from scratch">
                       <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
                         <path d="M10 6A4 4 0 112 6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" />
@@ -471,7 +488,7 @@
             placeholder="e.g. Go long when Fear &amp; Greed drops below 20 and STRK RSI is oversold. Exit after 5 days or when RSI recovers above 50."
             rows="3"></textarea>
           <div class="init-prompt-footer">
-            <span class="init-char-count" id="initCharCount">0 / 500</span>
+            <span class="init-char-count" id="initCharCount">0 chars</span>
           </div>
         </div>
 
@@ -773,10 +790,10 @@
   <script src="app.js?v=6"></script>
   <script src="resize.js?v=6"></script>
   <script src="backtest.js?v=6"></script>
-  <script src="creator.js?v=7"></script>
+  <script src="creator.js?v=11"></script>
   <script src="library.js?v=6"></script>
   <script src="bot.js?v=6"></script>
-  <script src="initiator.js?v=3"></script>
+  <script src="initiator.js?v=4"></script>
 
   <!-- Particle canvas -->
   <canvas id="particleCanvas" style="position:fixed;inset:0;pointer-events:none;z-index:0;opacity:.3"></canvas>

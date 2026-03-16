@@ -149,17 +149,15 @@
         });
     }
 
-    /* ── Character counter ----------------------------------------------------- */
+    /* ── Character counter (no limit) ----------------------------------------- */
     function wirePromptCounter() {
         const ta = document.getElementById('initPrompt');
         const count = document.getElementById('initCharCount');
         if (!ta || !count) return;
-        const MAX = 500;
         ta.addEventListener('input', () => {
             const n = ta.value.length;
-            count.textContent = `${n} / ${MAX}`;
-            count.classList.toggle('warn', n > MAX * 0.85);
-            if (n > MAX) ta.value = ta.value.slice(0, MAX);
+            count.textContent = `${n} chars`;
+            count.classList.toggle('warn', n > 400);
         });
     }
 

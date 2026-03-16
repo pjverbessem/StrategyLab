@@ -2,6 +2,61 @@
 
 'use strict';
 
+// ── Code version history ──────────────────────────────────────────────────────
+const _codeHistory = [];   // array of code strings
+let _historyIdx = -1;  // current position
+
+function _historyPush(code) {
+    if (!code) return;
+    // Don't duplicate consecutive identical entries
+    if (_codeHistory[_historyIdx] === code) return;
+    // Truncate any forward history when new code arrives
+    _codeHistory.splice(_historyIdx + 1);
+    _codeHistory.push(code);
+    _historyIdx = _codeHistory.length - 1;
+    _historyRender();
+}
+
+function _historyLoad(idx) {
+    if (idx < 0 || idx >= _codeHistory.length) return;
+    _historyIdx = idx;
+    const code = _codeHistory[idx];
+    if (window.creatorEditor) {
+        window.creatorEditor.setValue(code);
+        window.creatorEditor.clearHistory();
+    }
+    window._lastStrategyCode = code;
+    _historyRender();
+}
+
+function _historyRender() {
+    const nav = document.getElementById('codeHistoryNav');
+    const sep = document.getElementById('codeHistSep');
+    const counter = document.getElementById('codeHistCounter');
+    const prev = document.getElementById('codeHistPrev');
+    const next = document.getElementById('codeHistNext');
+    if (!nav) return;
+    const total = _codeHistory.length;
+    if (total <= 1) {
+        nav.style.display = 'none';
+        if (sep) sep.style.display = 'none';
+        return;
+    }
+    nav.style.display = 'flex';
+    if (sep) sep.style.display = 'block';
+    if (counter) counter.textContent = `${_historyIdx + 1} / ${total}`;
+    if (prev) prev.disabled = _historyIdx <= 0;
+    if (next) next.disabled = _historyIdx >= total - 1;
+}
+
+// Wire history buttons (after DOM ready)
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('codeHistPrev')?.addEventListener('click', () => _historyLoad(_historyIdx - 1));
+    document.getElementById('codeHistNext')?.addEventListener('click', () => _historyLoad(_historyIdx + 1));
+});
+
+
+
 // ── Tab switching ─────────────────────────────────────────────────────────────
 document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -329,6 +384,36 @@ Your code will be executed directly in a Python sandbox. It must run without err
 Do NOT use markdown headers (###) — only use [Algorithm], [Python Code], [Parameters] labels.`;
 }
 
+// Refinement prompt — for follow-up messages when code already exists
+function buildRefinementPrompt(context, userMsg) {
+    const useFearGreed = /fear.?greed|fear_greed|fgi|sentiment index/i.test(userMsg || '');
+    const sig = useFearGreed ? 'def strategy(df, unlocks, fear_greed):' : 'def strategy(df, unlocks):';
+    const lines = [
+        'You are an expert quantitative trading strategy builder.',
+        'The user is REFINING an existing strategy - they want a specific change, NOT a brand-new strategy.',
+        '',
+        'Context: ' + context,
+        '',
+        'RESPOND WITH EXACTLY THESE THREE SECTIONS:',
+        '',
+        '[Algorithm]',
+        'In 2-3 sentences, describe ONLY what changed vs the previous version. Do NOT re-explain the full strategy.',
+        '',
+        '[Python Code]',
+        'The COMPLETE, fully-working updated ' + sig + ' function with the requested change applied.',
+        'Every line must be real Python - no placeholders, no "# ...", no pass.',
+        'Function must end with "return trades".',
+        'Available: pandas as pd, numpy as np, ta.momentum.RSIIndicator, ta.trend.MACD, ta.volatility.BollingerBands, ta.trend.EMAIndicator',
+        'Trade dicts: entry (unix int), exit (unix int), side, entry_price, exit_price.',
+        '',
+        '[Parameters]',
+        'Only list parameters that changed or were added. Keep brief.',
+        '',
+        'Do NOT use markdown headers (###) - only [Algorithm], [Python Code], [Parameters] labels.',
+    ];
+    return lines.join('\n');
+}
+
 async function sendChat() {
     const msg = chatInput.value.trim();
     if (!msg && !_pendingImageBase64) return;
@@ -347,7 +432,10 @@ async function sendChat() {
     showThinking();
 
     const context = getDataContext();
-    const systemPrompt = buildSystemPrompt(context, msg);
+    const isFollowUp = chatHistory.length >= 2 && !!window._lastStrategyCode;
+    const systemPrompt = isFollowUp
+        ? buildRefinementPrompt(context, msg)
+        : buildSystemPrompt(context, msg);
     const currentCode = window._lastStrategyCode || '';
 
     try {
@@ -400,18 +488,21 @@ async function sendChat() {
             .replace(/^\s*\*{1,2}\s*(Algorithm|Python Code|Parameters)\s*\*{0,2}\s*:?\s*$/gim, '[$1]')
             .replace(/^\s*#{1,3}\s*(Algorithm|Python Code|Parameters)\s*:?\s*$/gim, '[$1]');
 
-        // Section boundaries: label appears at start of line
+        console.log('[AI reply] length:', reply.length, '\nfirst 300:', reply.slice(0, 300));
+
+        // Section boundaries: walk through all [Label] occurrences in order
         const sectionRe = /\[(Algorithm|Python Code|Parameters)\]/gi;
         const sections = {};
         let m2, lastKey = null, lastIdx = 0;
-        const normCopy = normalised;
         sectionRe.lastIndex = 0;
-        while ((m2 = sectionRe.exec(normCopy)) !== null) {
-            if (lastKey) sections[lastKey] = normCopy.slice(lastIdx, m2.index).trim();
-            lastKey = m2[1].toLowerCase().replace(' ', '_');
+        while ((m2 = sectionRe.exec(normalised)) !== null) {
+            if (lastKey) sections[lastKey] = normalised.slice(lastIdx, m2.index).trim();
+            lastKey = m2[1].toLowerCase().replace(/ /g, '_');  // replace ALL spaces
             lastIdx = m2.index + m2[0].length;
         }
-        if (lastKey) sections[lastKey] = normCopy.slice(lastIdx).trim();
+        if (lastKey) sections[lastKey] = normalised.slice(lastIdx).trim();
+
+        console.log('[sections found]', Object.keys(sections), '\npython_code length:', (sections['python_code'] || '').length);
 
         const algoText = sections['algorithm'] || reply;
         let rawCode = sections['python_code'] || '';
@@ -430,10 +521,17 @@ async function sendChat() {
         }
         rawCode = extractCode(rawCode);
 
-        // Fallback: if section parse found nothing, scan entire reply for def strategy block
+        console.log('[rawCode after extractCode] length:', rawCode.length, rawCode.slice(0, 100));
+
+        // Fallback 1: scan entire reply for a fenced code block containing def strategy
         if (!rawCode) {
-            const wholeMatch = normalised.match(/```(?:python)?\n([\s\S]*?def strategy[\s\S]*?)```/);
-            if (wholeMatch) rawCode = wholeMatch[1].trim();
+            const wholeMatch = normalised.match(/```(?:python)?\n([\s\S]+?def strategy[\s\S]+?)\n```/);
+            if (wholeMatch) { rawCode = wholeMatch[1].trim(); console.log('[fallback1 hit]'); }
+        }
+        // Fallback 2: extract the raw def strategy...return trades block without fences
+        if (!rawCode) {
+            const defMatch = normalised.match(/(def strategy\([\s\S]+?return trades)/);
+            if (defMatch) { rawCode = defMatch[1].trim(); console.log('[fallback2 hit]'); }
         }
 
         const renderText = t => t
@@ -482,6 +580,7 @@ async function sendChat() {
         window._lastStrategyCode = rawCode;
         window._lastStrategyAlgo = algoText;
         window._lastStrategyParams = paramText;
+        if (rawCode) _historyPush(rawCode);  // track in version history
 
         // Notify CodeMirror editor (in case it initialised after this)
         window.dispatchEvent(new Event('strategyGenerated'));

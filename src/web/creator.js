@@ -490,6 +490,7 @@ async function sendChat() {
             });
         } else {
             // Text chat endpoint
+            const initCtx = window._initContext || {};
             res = await fetch('/api/chat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -498,8 +499,12 @@ async function sendChat() {
                     system: systemPrompt,
                     history: chatHistory,
                     current_code: currentCode,
+                    selected_sources:    initCtx.selected_sources    || [],
+                    selected_indicators: initCtx.selected_indicators || [],
                 })
             });
+            // Clear after first message — subsequent refinements don't need it
+            window._initContext = null;
         }
 
         hideThinking();
@@ -747,10 +752,15 @@ document.getElementById('runBacktestBtn')?.addEventListener('click', async () =>
 
 
     try {
+        // Read indicator config saved by Initiator (if launched from there)
+        const savedCfg = (() => { try { return JSON.parse(sessionStorage.getItem('initConfig') || '{}'); } catch { return {}; } })();
+        const indicators = savedCfg.indicators || [];
+
+        const exchange = savedCfg.exchange || localStorage.getItem('selectedExchange') || 'kraken';
         const res = await fetch('/api/backtest', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ pair, start, end, interval, script })
+            body: JSON.stringify({ pair, start, end, interval, script, indicators, exchange })
         });
         const data = await res.json();
 
@@ -783,15 +793,15 @@ document.getElementById('runBacktestBtn')?.addEventListener('click', async () =>
 
         const trades = data.trades || [];
 
-        // 1. Large price chart (middle zone) — candles + arrows
-        renderPriceChart(data);
+        // 1. Large price chart (middle zone) — candles + equity sub-pane + indicator sub-panes
+        renderPriceChart(data, pair);
 
-        // 2. Equity curve (inside Overview tab)
+        // 2. Equity curve (inside Overview tab) — static overview, no sync needed
         const equityEmpty = document.getElementById('equityEmptyState');
-        const equityWrap = document.getElementById('resultChartWrap');
+        const equityWrap  = document.getElementById('resultChartWrap');
         if (data.equity?.length) {
             if (equityEmpty) equityEmpty.style.display = 'none';
-            if (equityWrap) { equityWrap.style.display = 'block'; }
+            if (equityWrap)  equityWrap.style.display  = 'block';
             renderResultChart(data, document.getElementById('resultChart'), pair);
         }
 
@@ -833,35 +843,34 @@ document.querySelectorAll('.bt-tab').forEach(btn => {
     });
 });
 
+// renderResultChart — static equity overview in the stats tab (no time-sync)
 function renderResultChart(data, el, pair) {
+    if (!el || !window.LightweightCharts) return;
     el.innerHTML = '';
-    if (!window.LightweightCharts) {
-        el.innerHTML = '<p style="padding:16px;color:var(--t3);font-size:12px">Chart library not loaded</p>';
-        return;
-    }
     const chart = LightweightCharts.createChart(el, {
-        layout: { background: { color: 'transparent' }, textColor: '#52525b' },
+        layout: { background: { color: 'transparent' }, textColor: '#71717a' },
         grid: { vertLines: { color: 'rgba(255,255,255,.04)' }, horzLines: { color: 'rgba(255,255,255,.04)' } },
         crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
-        rightPriceScale: { borderColor: 'rgba(255,255,255,.08)', scaleMargins: { top: 0.1, bottom: 0.1 } },
+        rightPriceScale: { borderColor: 'rgba(255,255,255,.08)', scaleMargins: { top: 0.08, bottom: 0.04 } },
         timeScale: { borderColor: 'rgba(255,255,255,.08)', timeVisible: true },
         handleScroll: true, handleScale: true,
     });
-
     if (data.equity?.length) {
-        const totalRet = data.stats?.total_return ?? 0;
+        const totalRet  = data.stats?.total_return ?? 0;
         const lineColor = totalRet >= 0 ? '#22c55e' : '#ef4444';
         const series = chart.addAreaSeries({
             lineColor,
-            topColor: totalRet >= 0 ? 'rgba(34,197,94,.22)' : 'rgba(239,68,68,.18)',
+            topColor:    totalRet >= 0 ? 'rgba(34,197,94,.20)' : 'rgba(239,68,68,.16)',
             bottomColor: 'rgba(0,0,0,0)',
-            lineWidth: 2,
-            title: pair + ' Equity',
+            lineWidth: 2, title: pair + ' Equity',
         });
         series.setData(data.equity);
     }
     chart.timeScale().fitContent();
-
+    // Defer seeding — fitContent() settles after one rAF
+    requestAnimationFrame(() => {
+        _addSlaveChart(chart);
+    });
     if (typeof ResizeObserver !== 'undefined') {
         new ResizeObserver(() => chart.applyOptions({ width: el.clientWidth })).observe(el);
     }
@@ -902,11 +911,92 @@ function renderMetrics(stats, trades) {
     setBar('m-winrate-bar', wr);
 }
 
-// renderPriceChart — main large candlestick chart with trade entry/exit markers
-// This IS TradingView's primary chart view: price candles + arrows
-function renderPriceChart(data) {
+// ── Chart sync: master (price) drives all slaves via real time range ─────────────
+// We do NOT use a symmetric subscription mesh — that causes issues when charts
+// have different data densities (equity has 2 pts, candles have 400).
+// Instead: price chart is MASTER, all others are SLAVES.
+window._masterChart  = null;  // price chart LWC instance
+window._slaveCharts  = [];    // array of LWC chart instances
+window._syncLocked   = false; // re-entrancy guard
+
+function _setMasterChart(chartInst) {
+    window._masterChart = chartInst;
+    window._slaveCharts = [];
+
+    // Master broadcasts to all current slaves on every range change
+    chartInst.timeScale().subscribeVisibleTimeRangeChange(range => {
+        if (window._syncLocked || !range) return;
+        window._syncLocked = true;
+        window._slaveCharts.forEach(slave => {
+            try { slave.timeScale().setVisibleRange(range); } catch {}
+        });
+        window._syncLocked = false;
+    });
+}
+
+function _addSlaveChart(chartInst) {
+    // Avoid duplicates
+    if (window._slaveCharts.includes(chartInst)) return;
+    window._slaveCharts.push(chartInst);
+
+    // Immediately seed slave with master's current range
+    if (window._masterChart) {
+        try {
+            const range = window._masterChart.timeScale().getVisibleRange();
+            if (range) chartInst.timeScale().setVisibleRange(range);
+        } catch {}
+    }
+
+    // Slave can also drive master (bidirectional)
+    chartInst.timeScale().subscribeVisibleTimeRangeChange(range => {
+        if (window._syncLocked || !range) return;
+        window._syncLocked = true;
+        // Apply to master
+        try { window._masterChart?.timeScale().setVisibleRange(range); } catch {}
+        // Apply to sibling slaves
+        window._slaveCharts.forEach(s => {
+            if (s !== chartInst) try { s.timeScale().setVisibleRange(range); } catch {};
+        });
+        window._syncLocked = false;
+    });
+}
+
+function _resetChartSync() {
+    window._masterChart = null;
+    window._slaveCharts = [];
+    window._syncLocked  = false;
+}
+
+// Sync slave charts when switching to Overview tab (chart may have been hidden)
+document.querySelectorAll('.bt-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+        if (btn.dataset.btTab === 'overview' && window._masterChart) {
+            requestAnimationFrame(() => {
+                try {
+                    const range = window._masterChart.timeScale().getVisibleRange();
+                    if (range) {
+                        window._slaveCharts.forEach(s => {
+                            try { s.timeScale().setVisibleRange(range); } catch {}
+                        });
+                    }
+                } catch {}
+            });
+        }
+    });
+});
+
+const IND_COLORS = [
+    '#f59e0b', '#a78bfa', '#38bdf8', '#fb923c', '#34d399',
+    '#f472b6', '#818cf8', '#4ade80', '#facc15', '#60a5fa',
+];
+let _indColorIdx = 0;
+function nextIndColor() { return IND_COLORS[_indColorIdx++ % IND_COLORS.length]; }
+
+// ── renderPriceChart — candles + equity sub-pane + indicator overlays ──────────
+function renderPriceChart(data, pair) {
+    _resetChartSync();
     const emptyEl = document.getElementById('chartEmptyState');
-    const wrapEl = document.getElementById('priceChartWrap');
+    const wrapEl  = document.getElementById('priceChartWrap');
     const chartEl = document.getElementById('priceChart');
     if (!chartEl) return;
 
@@ -914,47 +1004,244 @@ function renderPriceChart(data) {
     const hasData = trades.length > 0 && window.LightweightCharts && data.ohlcv?.length;
 
     if (emptyEl) emptyEl.style.display = hasData ? 'none' : 'flex';
-    if (wrapEl) wrapEl.style.display = hasData ? 'block' : 'none';
+    if (wrapEl)  wrapEl.style.display  = hasData ? 'block' : 'none';
     if (!hasData) return;
 
+    _indColorIdx = 0;
     chartEl.innerHTML = '';
+
+    const indData = data.indicator_data || {};
+    const indMeta = data.indicator_meta || {};
+
+    // Separate price-scale vs oscillator indicators
+    const priceInds = Object.keys(indData).filter(k => indMeta[k]?.type === 'price');
+    const oscGroups  = {}; // group -> [col, ...]
+    Object.keys(indData).forEach(k => {
+        if (indMeta[k]?.type === 'oscillator') {
+            const g = indMeta[k].group || k;
+            (oscGroups[g] = oscGroups[g] || []).push(k);
+        }
+    });
+    const numOscPanes = Object.keys(oscGroups).length;
+
+    // ── Size the container to make room for sub-panes ─────────────────────────
+    const MAIN_H   = numOscPanes > 0 ? 260 : 340;
+    const SUB_H    = 110;
+    const TOTAL_H  = MAIN_H + numOscPanes * (SUB_H + 4);
+    chartEl.style.height = TOTAL_H + 'px';
+    if (wrapEl) wrapEl.style.height = TOTAL_H + 'px';
+
+    // ── Main price chart ──────────────────────────────────────────────────────
     const chart = LightweightCharts.createChart(chartEl, {
-        layout: { background: { color: 'transparent' }, textColor: '#52525b' },
+        layout: { background: { color: 'transparent' }, textColor: '#71717a' },
         grid: { vertLines: { color: 'rgba(255,255,255,.03)' }, horzLines: { color: 'rgba(255,255,255,.03)' } },
         crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
-        rightPriceScale: { borderColor: 'rgba(255,255,255,.08)', scaleMargins: { top: 0.05, bottom: 0.05 } },
-        timeScale: { borderColor: 'rgba(255,255,255,.08)', timeVisible: true, secondsVisible: false },
+        rightPriceScale: { borderColor: 'rgba(255,255,255,.08)', scaleMargins: { top: 0.06, bottom: 0.04 } },
+        timeScale: {
+            borderColor: 'rgba(255,255,255,.08)', timeVisible: true, secondsVisible: false,
+            // Hide time axis on main chart if sub-panes exist (sub-panes show it)
+            visible: numOscPanes === 0,
+        },
         handleScroll: true, handleScale: true,
-        width: chartEl.clientWidth, height: chartEl.clientHeight || 200,
+        width: chartEl.clientWidth, height: MAIN_H,
     });
 
+    // Candles
     const candles = chart.addCandlestickSeries({
         upColor: '#16a34a', downColor: '#dc2626', borderVisible: false,
         wickUpColor: '#16a34a', wickDownColor: '#dc2626',
     });
     candles.setData(data.ohlcv.map(c => ({ time: c.time, open: c.open, high: c.high, low: c.low, close: c.close })));
 
+    // ── Price-scale indicator overlays on main chart ──────────────────────────
+    const legendItems = [];
+    priceInds.forEach(col => {
+        const color = nextIndColor();
+        // Bollinger Bands — draw fill between upper and lower
+        if (col === 'BB_UPPER' && indData['BB_MID'] && indData['BB_LOWER']) {
+            const upper = chart.addLineSeries({ color, lineWidth: 1, lineStyle: 1, title: 'BB' });
+            const mid   = chart.addLineSeries({ color, lineWidth: 1, title: '' });
+            const lower = chart.addLineSeries({ color, lineWidth: 1, lineStyle: 1, title: '' });
+            upper.setData(indData['BB_UPPER']);
+            mid.setData(indData['BB_MID']);
+            lower.setData(indData['BB_LOWER']);
+            legendItems.push({ color, label: 'BB' });
+            return;
+        }
+        if (col === 'BB_MID' || col === 'BB_LOWER' || col === 'BB_WIDTH') return; // handled above
+        const series = chart.addLineSeries({ color, lineWidth: 1.5, title: col });
+        series.setData(indData[col]);
+        legendItems.push({ color, label: col });
+    });
+
+    // ── Trade markers ─────────────────────────────────────────────────────────
     const markers = [];
     for (const t of trades) {
         const isShort = t.side === 'short';
-        const pnlTxt = (t.return_pct >= 0 ? '+' : '') + Number(t.return_pct).toFixed(1) + '%';
-        markers.push({
-            time: t.entry, position: isShort ? 'aboveBar' : 'belowBar',
+        const pnlTxt  = (t.return_pct >= 0 ? '+' : '') + Number(t.return_pct).toFixed(1) + '%';
+        markers.push({ time: t.entry, position: isShort ? 'aboveBar' : 'belowBar',
             color: isShort ? '#dc2626' : '#16a34a', shape: isShort ? 'arrowDown' : 'arrowUp',
-            text: isShort ? 'Short' : 'Long', size: 1
-        });
-        markers.push({
-            time: t.exit, position: isShort ? 'belowBar' : 'aboveBar',
+            text: isShort ? 'Short ▼' : 'Long ▲', size: 1 });
+        markers.push({ time: t.exit, position: isShort ? 'belowBar' : 'aboveBar',
             color: t.return_pct >= 0 ? '#16a34a' : '#dc2626', shape: isShort ? 'arrowUp' : 'arrowDown',
-            text: pnlTxt, size: 1
-        });
+            text: pnlTxt, size: 1 });
     }
     markers.sort((a, b) => a.time - b.time);
     candles.setMarkers(markers);
     chart.timeScale().fitContent();
+    _setMasterChart(chart);
+
+    // Render legend chips
+    const legend = document.createElement('div');
+    legend.style.cssText = 'position:absolute;top:8px;left:8px;display:flex;flex-wrap:wrap;gap:4px;z-index:10;pointer-events:none;';
+    legendItems.forEach(({ color, label }) => {
+        const chip = document.createElement('span');
+        chip.style.cssText = `background:rgba(0,0,0,.55);border:1px solid ${color};color:${color};font:700 9px monospace;padding:2px 7px;border-radius:99px;letter-spacing:.5px;`;
+        chip.textContent = label;
+        legend.appendChild(chip);
+    });
+    chartEl.style.position = 'relative';
+    chartEl.appendChild(legend);
+
+    // ── Oscillator sub-panes ──────────────────────────────────────────────────
+    // LightweightCharts v4 doesn't support true sub-panes; we create separate
+    // chart instances stacked vertically inside the same container element.
+    const OSC_REF_LINES = {
+        rsi:   [{ value: 70, color: '#dc2626', label: '70' }, { value: 30, color: '#16a34a', label: '30' }, { value: 50, color: 'rgba(255,255,255,.2)', label: '50' }],
+        stoch: [{ value: 80, color: '#dc2626', label: '80' }, { value: 20, color: '#16a34a', label: '20' }],
+        wr:    [{ value: -20, color: '#dc2626', label: '-20' }, { value: -80, color: '#16a34a', label: '-80' }],
+        macd:  [],
+    };
+
+    Object.entries(oscGroups).forEach(([group, cols], gi) => {
+        const subWrap = document.createElement('div');
+        subWrap.style.cssText = `width:100%;height:${SUB_H}px;margin-top:4px;border-top:1px solid rgba(255,255,255,.07);`;
+        chartEl.appendChild(subWrap);
+
+        const subChart = LightweightCharts.createChart(subWrap, {
+            layout: { background: { color: 'transparent' }, textColor: '#71717a' },
+            grid: { vertLines: { color: 'rgba(255,255,255,.02)' }, horzLines: { color: 'rgba(255,255,255,.02)' } },
+            crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
+            rightPriceScale: {
+                borderColor: 'rgba(255,255,255,.06)',
+                scaleMargins: { top: 0.1, bottom: 0.1 },
+                minimumWidth: 60,
+            },
+            timeScale: { borderColor: 'rgba(255,255,255,.06)', timeVisible: true, secondsVisible: false },
+            handleScroll: true, handleScale: true,
+            width: subWrap.clientWidth, height: SUB_H,
+        });
+
+        // Group label
+        const gLabel = document.createElement('span');
+        gLabel.style.cssText = 'position:absolute;top:4px;left:8px;font:700 8px monospace;letter-spacing:.8px;text-transform:uppercase;color:rgba(255,255,255,.35);pointer-events:none;';
+        gLabel.textContent = group.toUpperCase();
+        subWrap.style.position = 'relative';
+        subWrap.appendChild(gLabel);
+
+        // Reference lines
+        const refs = OSC_REF_LINES[group] || [];
+        refs.forEach(({ value, color, label }) => {
+            const refSeries = subChart.addLineSeries({
+                color, lineWidth: 1, lineStyle: 2 /* dashed */,
+                priceLineVisible: false, lastValueVisible: false, title: label,
+            });
+            // Draw horizontal line across full time range
+            const allTimes = indData[cols[0]] || [];
+            if (allTimes.length >= 2) {
+                refSeries.setData([
+                    { time: allTimes[0].time,  value },
+                    { time: allTimes[allTimes.length - 1].time, value },
+                ]);
+            }
+        });
+
+        // Plot each column in the group
+        cols.forEach(col => {
+            let color, lineW = 1.5;
+            if (col === 'MACD')        { color = '#38bdf8'; lineW = 1.5; }
+            else if (col === 'MACD_SIGNAL') { color = '#f59e0b'; lineW = 1; }
+            else if (col === 'MACD_HIST')  {
+                // Histogram as area
+                const hist = subChart.addAreaSeries({
+                    lineColor: 'rgba(100,100,200,.8)', topColor: 'rgba(100,100,200,.3)',
+                    bottomColor: 'rgba(100,100,200,.0)', lineWidth: 1, title: 'Hist',
+                });
+                hist.setData(indData[col]);
+                return;
+            }
+            else if (col.startsWith('STOCH_K')) { color = '#a78bfa'; }
+            else if (col.startsWith('STOCH_D')) { color = '#fb923c'; lineW = 1; }
+            else if (col.startsWith('RSI'))     { color = '#34d399'; }
+            else if (col.startsWith('WR'))      { color = '#f472b6'; }
+            else if (col.startsWith('ATR'))     { color = '#facc15'; }
+            else if (col === 'OBV')             { color = '#60a5fa'; }
+            else { color = nextIndColor(); }
+
+            const s = subChart.addLineSeries({ color, lineWidth: lineW, title: col,
+                priceLineVisible: false, lastValueVisible: true });
+            s.setData(indData[col]);
+        });
+
+        subChart.timeScale().fitContent();
+
+        // Register sub-pane as slave
+        _addSlaveChart(subChart);
+
+        if (typeof ResizeObserver !== 'undefined') {
+            new ResizeObserver(() => subChart.applyOptions({ width: subWrap.clientWidth })).observe(subWrap);
+        }
+    });
+
+    // ── Equity curve sub-pane (always last, always visible) ──────────────────────
+    if (data.equity?.length) {
+        const EQUITY_H = 90;
+        const totalRet  = data.stats?.total_return ?? 0;
+        const eqWrap = document.createElement('div');
+        eqWrap.style.cssText = `width:100%;height:${EQUITY_H}px;margin-top:4px;border-top:1px solid rgba(255,255,255,.07);position:relative;`;
+        chartEl.appendChild(eqWrap);
+        chartEl.style.height = (parseInt(chartEl.style.height) + EQUITY_H + 4) + 'px';
+        if (wrapEl) wrapEl.style.height = chartEl.style.height;
+
+        const eqLabel = document.createElement('span');
+        eqLabel.style.cssText = 'position:absolute;top:4px;left:8px;font:700 8px monospace;letter-spacing:.8px;text-transform:uppercase;color:rgba(255,255,255,.35);pointer-events:none;z-index:1;';
+        eqLabel.textContent = 'EQUITY';
+        eqWrap.appendChild(eqLabel);
+
+        const eqChart = LightweightCharts.createChart(eqWrap, {
+            layout: { background: { color: 'transparent' }, textColor: '#71717a' },
+            grid: { vertLines: { color: 'rgba(255,255,255,.02)' }, horzLines: { color: 'rgba(255,255,255,.02)' } },
+            crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
+            rightPriceScale: {
+                borderColor: 'rgba(255,255,255,.06)',
+                scaleMargins: { top: 0.1, bottom: 0.05 },
+                minimumWidth: 60,
+            },
+            timeScale: { borderColor: 'rgba(255,255,255,.06)', timeVisible: true, secondsVisible: false },
+            handleScroll: true, handleScale: true,
+            width: eqWrap.clientWidth, height: EQUITY_H,
+        });
+
+        const lineColor = totalRet >= 0 ? '#22c55e' : '#ef4444';
+        const eqSeries  = eqChart.addAreaSeries({
+            lineColor,
+            topColor:    totalRet >= 0 ? 'rgba(34,197,94,.25)' : 'rgba(239,68,68,.20)',
+            bottomColor: 'rgba(0,0,0,0)',
+            lineWidth: 2, priceLineVisible: false, lastValueVisible: true,
+        });
+        eqSeries.setData(data.equity);
+        eqChart.timeScale().fitContent();
+
+        // Wire into sync registry
+        _addSlaveChart(eqChart);
+
+        if (typeof ResizeObserver !== 'undefined') {
+            new ResizeObserver(() => eqChart.applyOptions({ width: eqWrap.clientWidth })).observe(eqWrap);
+        }
+    }
 
     if (typeof ResizeObserver !== 'undefined') {
-        new ResizeObserver(() => chart.applyOptions({ width: chartEl.clientWidth, height: chartEl.clientHeight || 200 })).observe(chartEl);
+        new ResizeObserver(() => chart.applyOptions({ width: chartEl.clientWidth })).observe(chartEl);
     }
 }
 // Alias for backward compat

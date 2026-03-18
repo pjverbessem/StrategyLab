@@ -17,7 +17,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.17/mode/python/python.min.js"></script>
   <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-  <link rel="stylesheet" href="style.css?v=2000">
+  <link rel="stylesheet" href="style.css?v=2009">
 </head>
 
 <body>
@@ -30,32 +30,15 @@
         <span>Strategy Lab</span>
       </div>
       <div class="nav-tabs" role="tablist">
-        <button class="tab-btn" data-panel="initiator" role="tab" id="tab-initiator-btn">✦ Initiator</button>
+        <button class="tab-btn" data-panel="initiator" role="tab" id="tab-initiator-btn">Initiator</button>
         <button class="tab-btn active" data-panel="creator" role="tab" id="tab-creator-btn">Creator</button>
         <button class="tab-btn" data-panel="library" role="tab" id="tab-library-btn">Library</button>
-        <button class="tab-btn" data-panel="bot" role="tab" id="tab-bot-btn">
-          <span class="bot-tab-label">Bot</span>
-          <span class="bot-tab-dot" id="botTabDot" style="display:none"></span>
-        </button>
+        <button class="tab-btn" data-panel="trading" role="tab" id="tab-trading-btn">Trading</button>
+        <button class="tab-btn" data-panel="portfolio" role="tab" id="tab-portfolio-btn">Portfolio</button>
+        <button class="tab-btn" data-panel="connections" role="tab" id="tab-connections-btn">Connections</button>
         <button class="tab-btn" data-panel="sources" role="tab">Data Sources</button>
-
       </div>
-      <div class="nav-right">
-        <div class="live-ticker" id="liveTicker">
-          <div class="ticker-item" data-pair="ARBUSD">ARB <span class="ticker-price" id="tick-ARBUSD">…</span></div>
-          <div class="ticker-item" data-pair="OPUSD">OP <span class="ticker-price" id="tick-OPUSD">…</span></div>
-          <div class="ticker-item" data-pair="STRKUSD">STRK <span class="ticker-price" id="tick-STRKUSD">…</span></div>
-          <div class="ticker-item" data-pair="ZKUSD">ZK <span class="ticker-price" id="tick-ZKUSD">…</span></div>
-        </div>
-        <div class="sys-status">
-          <div class="status-dot" id="statusDot"></div>
-          <span id="statusLabel">Live</span>
-        </div>
-        <div class="kraken-status" id="krakenStatus" title="Kraken API connection">
-          <span class="kraken-icon">🔗</span>
-          <span class="kraken-label" id="krakenLabel">Kraken</span>
-        </div>
-      </div>
+      <div class="nav-right"></div>
     </nav>
 
     <!-- ══ CREATOR PANEL ══════════════════════════════════════════ -->
@@ -502,31 +485,217 @@
           </div>
         </div>
 
-        <!-- Config row -->
-        <div class="init-config">
+        <!-- Exchange + Supplementary row (full width above indicator grid) -->
+        <div class="init-ds-section-full" id="initDsSectionFull">
 
-          <!-- Data Sources -->
+          <!-- Data Sources — replaced by datasources.js -->
+          <div class="init-section" id="initDsSection">
+            <div class="init-section-label">Execution Exchange</div>
+            <div class="init-exchange-wrap" id="initExchangeRow">
+              <!-- populated by datasources.js -->
+            </div>
+            <div class="init-section-label" style="margin-top:10px">Supplementary Signals</div>
+            <div class="init-supp-wrap" id="initDsGrid">
+              <!-- populated by datasources.js -->
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Config row (technical indicators only) -->
+        <div class="init-config" style="grid-template-columns:1fr">
+
+          <!-- Technical Indicators -->
           <div class="init-section">
-            <div class="init-section-label">Data Sources</div>
-            <div class="init-ds-grid" id="initDsGrid">
-              <label class="init-ds-card checked" data-key="price">
-                <input type="checkbox" value="price" checked>
-                <div class="init-ds-icon">📈</div>
-                <div class="init-ds-name">Price Data</div>
-                <div class="init-ds-sub">OHLCVT · Kraken</div>
-              </label>
-              <label class="init-ds-card" data-key="feargreed">
-                <input type="checkbox" value="feargreed">
-                <div class="init-ds-icon">😱</div>
-                <div class="init-ds-name">Fear &amp; Greed</div>
-                <div class="init-ds-sub">Daily index · alt.me</div>
-              </label>
-              <label class="init-ds-card" data-key="unlocks">
-                <input type="checkbox" value="unlocks">
-                <div class="init-ds-icon">🔓</div>
-                <div class="init-ds-name">Token Unlocks</div>
-                <div class="init-ds-sub">Vesting schedules</div>
-              </label>
+            <div class="init-section-label">Technical Indicators
+              <span class="init-ind-count" id="initIndCount"></span>
+            </div>
+
+            <div class="init-ind-group">
+              <div class="init-ind-group-label">Trend</div>
+              <div class="init-ind-grid" id="initIndGridTrend">
+
+                <div class="init-ind-card" data-id="sma" data-col="SMA_{p}">
+                  <div class="init-ind-header">
+                    <label class="init-ind-toggle">
+                      <input type="checkbox" class="init-ind-cb">
+                      <span class="init-ind-name">SMA</span>
+                    </label>
+                    <span class="init-ind-desc">Simple Moving Average</span>
+                  </div>
+                  <div class="init-ind-params" style="display:none">
+                    <label class="init-ind-param-lbl">Period
+                      <input type="number" class="init-ind-param" data-param="period" value="200" min="2" max="500">
+                    </label>
+                    <span class="init-ind-col-preview">df['SMA_200']</span>
+                  </div>
+                </div>
+
+                <div class="init-ind-card" data-id="ema" data-col="EMA_{p}">
+                  <div class="init-ind-header">
+                    <label class="init-ind-toggle">
+                      <input type="checkbox" class="init-ind-cb">
+                      <span class="init-ind-name">EMA</span>
+                    </label>
+                    <span class="init-ind-desc">Exponential Moving Average</span>
+                  </div>
+                  <div class="init-ind-params" style="display:none">
+                    <label class="init-ind-param-lbl">Period
+                      <input type="number" class="init-ind-param" data-param="period" value="21" min="2" max="500">
+                    </label>
+                    <span class="init-ind-col-preview">df['EMA_21']</span>
+                  </div>
+                </div>
+
+                <div class="init-ind-card" data-id="vwap">
+                  <div class="init-ind-header">
+                    <label class="init-ind-toggle">
+                      <input type="checkbox" class="init-ind-cb">
+                      <span class="init-ind-name">VWAP</span>
+                    </label>
+                    <span class="init-ind-desc">Volume Weighted Avg Price</span>
+                  </div>
+                  <div class="init-ind-params" style="display:none">
+                    <span class="init-ind-col-preview">df['VWAP']</span>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+            <div class="init-ind-group">
+              <div class="init-ind-group-label">Momentum</div>
+              <div class="init-ind-grid">
+
+                <div class="init-ind-card" data-id="rsi" data-col="RSI_{p}">
+                  <div class="init-ind-header">
+                    <label class="init-ind-toggle">
+                      <input type="checkbox" class="init-ind-cb">
+                      <span class="init-ind-name">RSI</span>
+                    </label>
+                    <span class="init-ind-desc">Relative Strength Index</span>
+                  </div>
+                  <div class="init-ind-params" style="display:none">
+                    <label class="init-ind-param-lbl">Period
+                      <input type="number" class="init-ind-param" data-param="period" value="14" min="2" max="50">
+                    </label>
+                    <span class="init-ind-col-preview">df['RSI_14']</span>
+                  </div>
+                </div>
+
+                <div class="init-ind-card" data-id="macd">
+                  <div class="init-ind-header">
+                    <label class="init-ind-toggle">
+                      <input type="checkbox" class="init-ind-cb">
+                      <span class="init-ind-name">MACD</span>
+                    </label>
+                    <span class="init-ind-desc">Moving Avg Convergence Div.</span>
+                  </div>
+                  <div class="init-ind-params" style="display:none">
+                    <label class="init-ind-param-lbl">Fast
+                      <input type="number" class="init-ind-param" data-param="fast" value="12" min="2" max="50">
+                    </label>
+                    <label class="init-ind-param-lbl">Slow
+                      <input type="number" class="init-ind-param" data-param="slow" value="26" min="2" max="100">
+                    </label>
+                    <label class="init-ind-param-lbl">Signal
+                      <input type="number" class="init-ind-param" data-param="signal" value="9" min="2" max="50">
+                    </label>
+                    <span class="init-ind-col-preview">df['MACD'], df['MACD_SIGNAL'], df['MACD_HIST']</span>
+                  </div>
+                </div>
+
+                <div class="init-ind-card" data-id="stoch">
+                  <div class="init-ind-header">
+                    <label class="init-ind-toggle">
+                      <input type="checkbox" class="init-ind-cb">
+                      <span class="init-ind-name">Stochastic</span>
+                    </label>
+                    <span class="init-ind-desc">Stochastic Oscillator</span>
+                  </div>
+                  <div class="init-ind-params" style="display:none">
+                    <label class="init-ind-param-lbl">%K Period
+                      <input type="number" class="init-ind-param" data-param="k" value="14" min="2" max="50">
+                    </label>
+                    <label class="init-ind-param-lbl">%D Period
+                      <input type="number" class="init-ind-param" data-param="d" value="3" min="1" max="20">
+                    </label>
+                    <span class="init-ind-col-preview">df['STOCH_K'], df['STOCH_D']</span>
+                  </div>
+                </div>
+
+                <div class="init-ind-card" data-id="wr" data-col="WR_{p}">
+                  <div class="init-ind-header">
+                    <label class="init-ind-toggle">
+                      <input type="checkbox" class="init-ind-cb">
+                      <span class="init-ind-name">Williams %R</span>
+                    </label>
+                    <span class="init-ind-desc">Williams Percent Range</span>
+                  </div>
+                  <div class="init-ind-params" style="display:none">
+                    <label class="init-ind-param-lbl">Period
+                      <input type="number" class="init-ind-param" data-param="period" value="14" min="2" max="50">
+                    </label>
+                    <span class="init-ind-col-preview">df['WR_14']</span>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+            <div class="init-ind-group">
+              <div class="init-ind-group-label">Volatility</div>
+              <div class="init-ind-grid">
+
+                <div class="init-ind-card" data-id="bbands">
+                  <div class="init-ind-header">
+                    <label class="init-ind-toggle">
+                      <input type="checkbox" class="init-ind-cb">
+                      <span class="init-ind-name">Bollinger Bands</span>
+                    </label>
+                    <span class="init-ind-desc">Price envelope (mean ± σ)</span>
+                  </div>
+                  <div class="init-ind-params" style="display:none">
+                    <label class="init-ind-param-lbl">Period
+                      <input type="number" class="init-ind-param" data-param="period" value="20" min="5" max="200">
+                    </label>
+                    <label class="init-ind-param-lbl">Std Dev
+                      <input type="number" class="init-ind-param" data-param="std" value="2" min="1" max="4" step="0.5">
+                    </label>
+                    <span class="init-ind-col-preview">df['BB_UPPER'], df['BB_MID'], df['BB_LOWER'], df['BB_WIDTH']</span>
+                  </div>
+                </div>
+
+                <div class="init-ind-card" data-id="atr" data-col="ATR_{p}">
+                  <div class="init-ind-header">
+                    <label class="init-ind-toggle">
+                      <input type="checkbox" class="init-ind-cb">
+                      <span class="init-ind-name">ATR</span>
+                    </label>
+                    <span class="init-ind-desc">Average True Range</span>
+                  </div>
+                  <div class="init-ind-params" style="display:none">
+                    <label class="init-ind-param-lbl">Period
+                      <input type="number" class="init-ind-param" data-param="period" value="14" min="2" max="50">
+                    </label>
+                    <span class="init-ind-col-preview">df['ATR_14']</span>
+                  </div>
+                </div>
+
+                <div class="init-ind-card" data-id="obv">
+                  <div class="init-ind-header">
+                    <label class="init-ind-toggle">
+                      <input type="checkbox" class="init-ind-cb">
+                      <span class="init-ind-name">OBV</span>
+                    </label>
+                    <span class="init-ind-desc">On Balance Volume</span>
+                  </div>
+                  <div class="init-ind-params" style="display:none">
+                    <span class="init-ind-col-preview">df['OBV']</span>
+                  </div>
+                </div>
+
+              </div>
             </div>
           </div>
 
@@ -561,6 +730,7 @@
           </div>
 
         </div><!-- /init-config -->
+
 
         <!-- Launch -->
         <button class="init-launch-btn" id="initLaunchBtn">
@@ -603,172 +773,393 @@
       </div>
     </div>
 
-    <!-- ══ BOT PANEL ══════════════════════════════════════════════ -->
-    <div class="panel" id="panel-bot" role="tabpanel">
-      <div class="bot-layout">
-        <div class="bot-config-col">
-          <div class="bot-config-card">
-            <div class="bot-config-header">
-              <div class="bot-config-title">🤖 Trading Bot</div>
-              <div class="bot-config-sub">Connect a strategy to live Kraken trading</div>
+    <!-- ══ TRADING PANEL ══════════════════════════════════════════════ -->
+    <div class="panel" id="panel-trading" role="tabpanel">
+
+      <!-- Running banner (hidden by default) -->
+      <div class="trading-run-banner" id="tradingRunBanner" style="display:none">
+        <div class="trading-run-pulse"></div>
+        <span>Strategy is live and monitoring the market</span>
+        <span id="tradingUptime" class="trading-run-uptime"></span>
+        <span id="tradingLastTick" class="trading-run-tick"></span>
+      </div>
+
+      <div class="trading-layout">
+
+        <!-- ── SIDEBAR: config ───────────────────────────────────────── -->
+        <div class="trading-sidebar">
+
+          <!-- Kraken connection status (read-only — edit in Connections tab) -->
+          <div class="trading-section">
+            <div class="trading-section-label">
+              Broker
+              <span class="trading-conn-badge checking" id="tradingConnBadge">Checking…</span>
             </div>
-            <div class="bot-section-label">Kraken Connection</div>
-            <div class="kraken-conn-card" id="krakenConnCard">
-              <div class="kraken-conn-icon">🔗</div>
-              <div class="kraken-conn-info">
-                <div class="kraken-conn-status" id="krakenConnStatus">Checking…</div>
-                <div class="kraken-conn-hint" id="krakenConnHint">Set <code>KRAKEN_API_KEY</code> and
-                  <code>KRAKEN_API_SECRET</code> env vars, then restart the server.
-                </div>
-              </div>
-              <button class="btn-sm" id="krakenCheckBtn">Check</button>
+            <div class="trading-conn-hint">Manage API keys in the
+              <button class="trading-goto-conn-btn" id="tradingGotoConnBtn">Connections tab →</button>
             </div>
-            <div class="bot-section-label" style="margin-top:18px">Account Balance <button class="btn-xs"
-                id="balanceRefreshBtn">↺</button></div>
-            <div class="balance-grid" id="balanceGrid">
-              <div class="balance-empty">Connect Kraken to see balances</div>
+          </div>
+
+          <!-- Strategy config section -->
+          <div class="trading-section">
+            <div class="trading-section-label">
+              Strategy
+              <button class="trading-icon-btn" id="tradingStratRefreshBtn" title="Refresh">↺</button>
             </div>
-            <div class="bot-section-label" style="margin-top:18px">Strategy</div>
-            <select class="ctrl-select" id="botStrategySelect">
-              <option value="">— Select saved strategy —</option>
+            <select class="ctrl-select" id="tradingStrategySelect" style="width:100%;margin-bottom:10px">
+              <option value="">Loading strategies…</option>
             </select>
-            <div class="bot-section-label" style="margin-top:14px">Settings</div>
-            <div class="bot-settings-grid">
-              <div class="bot-setting">
-                <label class="bot-setting-label">Pair</label>
-                <select class="ctrl-select" id="botPairSelect">
-                  <option value="ARBUSD">ARB/USD</option>
-                  <option value="OPUSD">OP/USD</option>
-                  <option value="STRKUSD">STRK/USD</option>
-                  <option value="ZKUSD">ZK/USD</option>
+
+            <div class="trading-row-2">
+              <div class="trading-field">
+                <label class="trading-label">Pair</label>
+                <select class="ctrl-select" id="tradingPairSelect">
+                  <option value="ARBUSD">ARB / USD</option>
+                  <option value="OPUSD">OP / USD</option>
+                  <option value="STRKUSD">STRK / USD</option>
+                  <option value="ZKUSD">ZK / USD</option>
                 </select>
               </div>
-              <div class="bot-setting">
-                <label class="bot-setting-label">Interval</label>
-                <select class="ctrl-select" id="botIntervalSelect">
+              <div class="trading-field">
+                <label class="trading-label">Interval</label>
+                <select class="ctrl-select" id="tradingIntervalSelect">
                   <option value="1440">1 Day</option>
                   <option value="240">4 Hours</option>
                   <option value="60">1 Hour</option>
                   <option value="15">15 Min</option>
                 </select>
               </div>
-              <div class="bot-setting">
-                <label class="bot-setting-label">Allocation (USD)</label>
-                <input type="number" class="ctrl-number" id="botAllocation" value="10" min="1" step="1">
-              </div>
             </div>
-            <div class="bot-action-row">
-              <button class="btn-bot-start" id="botStartBtn">▶ Start Bot</button>
-              <button class="btn-bot-stop" id="botStopBtn" disabled>■ Stop Bot</button>
+
+            <div class="trading-field" style="margin-bottom:14px">
+              <label class="trading-label">Allocation (USD)</label>
+              <input type="number" class="ctrl-number" id="tradingAllocation"
+                value="10" min="1" step="1" style="width:100%">
             </div>
-            <div class="bot-warning">⚠️ <strong>Live trading uses real funds.</strong> Only allocate money you can
-              afford to lose. Always test with small amounts first.</div>
+
+            <div class="trading-btn-row">
+              <button class="btn-run" id="tradingStartBtn" style="flex:1;justify-content:center">▶ Start</button>
+              <button class="trading-stop-btn" id="tradingStopBtn" disabled>■ Stop</button>
+            </div>
+
+            <div class="trading-risk-notice">
+              ⚠ <strong>Live trading uses real funds.</strong> Start small. Not financial advice.
+            </div>
+          </div>
+
+        </div><!-- /sidebar -->
+
+        <!-- ── MAIN: status + log ────────────────────────────────────── -->
+        <div class="trading-main">
+
+          <!-- Status bar -->
+          <div class="trading-status-bar">
+            <div class="trading-indicator-dot inactive" id="tradingIndicatorDot"></div>
+            <span class="trading-status-text" id="tradingStatusText">Inactive</span>
+          </div>
+
+          <!-- Metrics row -->
+          <div class="trading-metrics-row">
+            <div class="trading-metric-cell">
+              <div class="trading-metric-lbl">Signal</div>
+              <div class="trading-metric-val" id="tradingMetricSignal">—</div>
+            </div>
+            <div class="trading-metric-cell">
+              <div class="trading-metric-lbl">Position</div>
+              <div class="trading-metric-val" id="tradingMetricPosition">Flat</div>
+            </div>
+            <div class="trading-metric-cell">
+              <div class="trading-metric-lbl">Pair</div>
+              <div class="trading-metric-val" id="tradingMetricPair">—</div>
+            </div>
+            <div class="trading-metric-cell">
+              <div class="trading-metric-lbl">Entry Price</div>
+              <div class="trading-metric-val" id="tradingMetricEntry">—</div>
+            </div>
+            <div class="trading-metric-cell">
+              <div class="trading-metric-lbl">Unrealized P&amp;L</div>
+              <div class="trading-metric-val" id="tradingMetricUnrealized">—</div>
+            </div>
+            <div class="trading-metric-cell">
+              <div class="trading-metric-lbl">Realized P&amp;L</div>
+              <div class="trading-metric-val" id="tradingMetricRealized">—</div>
+            </div>
+          </div>
+
+          <!-- Activity log fills remaining space -->
+          <div class="trading-log-panel">
+            <div class="trading-log-header">Activity Log</div>
+            <div class="trading-log-body" id="tradingLog">
+              <div class="trading-log-empty">Start a strategy to see live activity here</div>
+            </div>
+          </div>
+
+        </div><!-- /main -->
+
+      </div><!-- /trading-layout -->
+    </div><!-- /panel-trading -->
+
+
+    <!-- ══ PORTFOLIO PANEL ════════════════════════════════════════ -->
+    <div class="panel" id="panel-portfolio" role="tabpanel">
+      <div class="port-page">
+
+        <!-- Page header -->
+        <div class="port-page-header">
+          <div>
+            <h1 class="port-page-title">Portfolio</h1>
+            <div class="port-page-sub">Aggregated performance &amp; risk across all strategies</div>
+          </div>
+          <div class="port-header-actions">
+            <span class="port-updated" id="portUpdated"></span>
+            <button class="btn-outline" id="portRefreshBtn">↺ Refresh</button>
           </div>
         </div>
 
-        <div class="bot-status-col">
-          <div class="bot-status-card" id="botStatusCard">
-            <div class="bot-status-header">
-              <div class="bot-status-indicator" id="botStatusIndicator">
-                <div class="bot-indicator-dot inactive" id="botIndicatorDot"></div>
-                <span id="botStatusText">Bot Inactive</span>
-              </div>
-              <div class="bot-uptime" id="botUptime"></div>
+        <!-- ── KPI strip ─────────────────────────────────────────── -->
+        <div class="port-kpi-strip">
+          <div class="port-kpi-card">
+            <div class="port-kpi-lbl">Strategies</div>
+            <div class="port-kpi-val" id="portKpiCount">—</div>
+            <div class="port-kpi-sub" id="portKpiActive"></div>
+          </div>
+          <div class="port-kpi-card">
+            <div class="port-kpi-lbl">Total Net P&amp;L</div>
+            <div class="port-kpi-val" id="portKpiPnl">—</div>
+            <div class="port-kpi-sub" id="portKpiPnlSub"></div>
+          </div>
+          <div class="port-kpi-card">
+            <div class="port-kpi-lbl">Avg Win Rate</div>
+            <div class="port-kpi-val" id="portKpiWinRate">—</div>
+            <div class="port-kpi-sub">across backtests</div>
+          </div>
+          <div class="port-kpi-card">
+            <div class="port-kpi-lbl">Best Strategy</div>
+            <div class="port-kpi-val port-kpi-val--sm" id="portKpiBest">—</div>
+            <div class="port-kpi-sub" id="portKpiBestVal"></div>
+          </div>
+          <div class="port-kpi-card">
+            <div class="port-kpi-lbl">Worst Drawdown</div>
+            <div class="port-kpi-val" id="portKpiDD">—</div>
+            <div class="port-kpi-sub" id="portKpiDDName"></div>
+          </div>
+          <div class="port-kpi-card">
+            <div class="port-kpi-lbl">Avg Profit Factor</div>
+            <div class="port-kpi-val" id="portKpiPF">—</div>
+            <div class="port-kpi-sub">&gt;1 is profitable</div>
+          </div>
+        </div>
+
+        <!-- ── Charts row ────────────────────────────────────────── -->
+        <div class="port-charts-row">
+          <div class="port-chart-card port-chart-card--wide">
+            <div class="port-card-header">
+              <div class="port-card-title">P&amp;L by Strategy</div>
             </div>
-            <div class="bot-metrics-row" id="botMetricsRow">
-              <div class="bot-metric">
-                <div class="bot-metric-label">Signal</div>
-                <div class="bot-metric-value" id="botSignal">—</div>
-              </div>
-              <div class="bot-metric">
-                <div class="bot-metric-label">Position</div>
-                <div class="bot-metric-value" id="botPosition">Flat</div>
-              </div>
-              <div class="bot-metric">
-                <div class="bot-metric-label">Entry Price</div>
-                <div class="bot-metric-value" id="botEntryPrice">—</div>
-              </div>
-              <div class="bot-metric">
-                <div class="bot-metric-label">Live Price</div>
-                <div class="bot-metric-value" id="botLivePrice">—</div>
-              </div>
-              <div class="bot-metric">
-                <div class="bot-metric-label">Unrealized P&amp;L</div>
-                <div class="bot-metric-value" id="botUnrealizedPnl">—</div>
-              </div>
-              <div class="bot-metric">
-                <div class="bot-metric-label">Realized P&amp;L</div>
-                <div class="bot-metric-value" id="botRealizedPnl">—</div>
-              </div>
+            <div class="port-chart-wrap">
+              <canvas id="portPnlChart"></canvas>
+              <div class="port-chart-empty" id="portPnlEmpty">Run backtests to see P&amp;L breakdown</div>
             </div>
           </div>
-          <div class="bot-log-card">
-            <div class="bot-log-header">
-              <span>Activity Log</span>
-              <button class="btn-xs" id="clearLogBtn">Clear</button>
+          <div class="port-chart-card">
+            <div class="port-card-header">
+              <div class="port-card-title">Exposure by Pair</div>
             </div>
-            <div class="bot-log-body" id="botLogBody">
-              <div class="bot-log-empty">Start the bot to see activity here</div>
+            <div class="port-chart-wrap port-chart-wrap--donut">
+              <canvas id="portAllocChart"></canvas>
+              <div class="port-chart-empty" id="portAllocEmpty">No strategies yet</div>
             </div>
           </div>
         </div>
-      </div>
-    </div>
 
-    <!-- ══ DATA SOURCES PANEL ══════════════════════════════════════ -->
-    <div class="panel" id="panel-sources" role="tabpanel">
+        <!-- ── Risk metrics ──────────────────────────────────────── -->
+        <div class="port-section-hdr">
+          <div class="port-section-title">Risk &amp; Performance Metrics</div>
+        </div>
+        <div class="port-risk-grid">
+          <div class="port-risk-cell">
+            <div class="port-risk-icon">σ</div>
+            <div class="port-risk-body">
+              <div class="port-risk-lbl">Avg Sharpe Ratio</div>
+              <div class="port-risk-val" id="portRiskSharpe">—</div>
+              <div class="port-risk-hint">Risk-adjusted return. &gt;1 good, &gt;2 great</div>
+            </div>
+          </div>
+          <div class="port-risk-cell">
+            <div class="port-risk-icon">↓</div>
+            <div class="port-risk-body">
+              <div class="port-risk-lbl">Max Drawdown</div>
+              <div class="port-risk-val" id="portRiskDD">—</div>
+              <div class="port-risk-hint">Largest peak-to-trough loss across strategies</div>
+            </div>
+          </div>
+          <div class="port-risk-cell">
+            <div class="port-risk-icon">W</div>
+            <div class="port-risk-body">
+              <div class="port-risk-lbl">Avg Win Rate</div>
+              <div class="port-risk-val" id="portRiskWin">—</div>
+              <div class="port-risk-hint">% of trades closed profitably</div>
+            </div>
+          </div>
+          <div class="port-risk-cell">
+            <div class="port-risk-icon">PF</div>
+            <div class="port-risk-body">
+              <div class="port-risk-lbl">Avg Profit Factor</div>
+              <div class="port-risk-val" id="portRiskPF">—</div>
+              <div class="port-risk-hint">Gross profit ÷ gross loss</div>
+            </div>
+          </div>
+          <div class="port-risk-cell">
+            <div class="port-risk-icon">Σ</div>
+            <div class="port-risk-body">
+              <div class="port-risk-lbl">Total Trades</div>
+              <div class="port-risk-val" id="portRiskTrades">—</div>
+              <div class="port-risk-hint">Combined across all backtested strategies</div>
+            </div>
+          </div>
+          <div class="port-risk-cell">
+            <div class="port-risk-icon">⊕</div>
+            <div class="port-risk-body">
+              <div class="port-risk-lbl">Diversification</div>
+              <div class="port-risk-val" id="portRiskDiv">—</div>
+              <div class="port-risk-hint">Unique pairs &amp; strategies active</div>
+            </div>
+          </div>
+          <div class="port-risk-cell">
+            <div class="port-risk-icon">↔</div>
+            <div class="port-risk-body">
+              <div class="port-risk-lbl">Pair Correlation</div>
+              <div class="port-risk-val" id="portRiskCorr">—</div>
+              <div class="port-risk-hint">Lower = better diversified risk</div>
+            </div>
+          </div>
+          <div class="port-risk-cell">
+            <div class="port-risk-icon">R</div>
+            <div class="port-risk-body">
+              <div class="port-risk-lbl">Portfolio ROI</div>
+              <div class="port-risk-val" id="portRiskROI">—</div>
+              <div class="port-risk-hint">Net P&amp;L relative to total allocation</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Strategy breakdown table ───────────────────────────── -->
+        <div class="port-section-hdr">
+          <div class="port-section-title">Strategy Breakdown</div>
+          <div class="port-section-count" id="portStratCount"></div>
+        </div>
+        <div class="port-table-wrap">
+          <table class="port-table">
+            <thead>
+              <tr>
+                <th>Strategy</th>
+                <th>Pair</th>
+                <th>Status</th>
+                <th class="port-th-r">Trades</th>
+                <th class="port-th-r">Win Rate</th>
+                <th class="port-th-r">Net P&amp;L</th>
+                <th class="port-th-r">Max DD</th>
+                <th class="port-th-r">Profit Factor</th>
+                <th class="port-th-r">Sharpe</th>
+              </tr>
+            </thead>
+            <tbody id="portStratTable">
+              <tr><td colspan="9" class="port-table-empty">Loading strategies…</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+      </div><!-- /port-page -->
+    </div><!-- /panel-portfolio -->
+
+    <!-- ══ CONNECTIONS PANEL ═══════════════════════════════ -->
+    <div class="panel" id="panel-connections" role="tabpanel">
       <div class="list-page-wrap">
         <div class="list-page">
           <div class="list-page-header">
-            <h1 class="list-page-title">Data Sources</h1>
-            <div class="list-search-wrap">
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-                <circle cx="7" cy="7" r="4.5" stroke="#71717A" stroke-width="1.5" />
-                <path d="M10.5 10.5L13 13" stroke="#71717A" stroke-width="1.5" stroke-linecap="round" />
-              </svg>
-              <input type="text" class="list-search" id="sourceSearch" placeholder="Search for data source">
+            <h1 class="list-page-title">Connections</h1>
+          </div>
+
+          <!-- Kraken card -->
+          <div class="conn-card" id="krakenConnCard">
+            <div class="conn-card-left">
+              <div class="conn-card-icon">K</div>
+              <div class="conn-card-info">
+                <div class="conn-card-name">Kraken</div>
+                <div class="conn-card-desc">Connect your Kraken account to enable live strategy execution and portfolio monitoring. API keys are held in server memory only and never written to disk.</div>
+              </div>
+            </div>
+            <div class="conn-card-right">
+              <span class="trading-conn-badge checking" id="connKrakenBadge">Checking…</span>
             </div>
           </div>
-          <div class="source-list" id="sourceList">
-            <div class="source-card">
-              <div class="source-icon">K</div>
-              <div class="source-info">
-                <div class="source-name">Kraken</div>
-                <div class="source-desc">OHLCVT price data for 300+ crypto pairs. Historical data from 2018. Minute,
-                  hourly and daily resolution.</div>
+
+          <!-- Kraken key form (shown when not connected) -->
+          <div class="conn-form" id="connKrakenForm">
+            <div class="conn-form-grid">
+              <div class="trading-field">
+                <label class="trading-label">API Key</label>
+                <input type="text" class="trading-input" id="connApiKey"
+                  placeholder="Your Kraken API key" autocomplete="off" spellcheck="false">
               </div>
-              <div class="source-status connected"><span class="status-dot-inline"></span>Connected</div>
+              <div class="trading-field">
+                <label class="trading-label">API Secret (Private Key)</label>
+                <input type="password" class="trading-input" id="connApiSecret"
+                  placeholder="Your API secret" autocomplete="new-password">
+              </div>
             </div>
-            <div class="source-card">
-              <div class="source-icon">D</div>
-              <div class="source-info">
-                <div class="source-name">DefiLlama</div>
-                <div class="source-desc">TVL, token unlock schedules, protocol metrics and emissions data across all
-                  major chains.</div>
-              </div>
-              <div class="source-status connected"><span class="status-dot-inline"></span>Connected</div>
-            </div>
-            <div class="source-card">
-              <div class="source-icon">N</div>
-              <div class="source-info">
-                <div class="source-name">News Sentinel</div>
-                <div class="source-desc">Real-time news with VADER sentiment scoring. 300 coins watched. Root-cause
-                  event filtering. 60-second polling.</div>
-              </div>
-              <div class="source-status active"><span class="status-dot-inline"></span>Live</div>
-            </div>
-            <div class="source-card">
-              <div class="source-icon">G</div>
-              <div class="source-info">
-                <div class="source-name">Kraken Live Ticker</div>
-                <div class="source-desc">Real-time bid/ask/last/volume prices from Kraken public API. Feeds the live
-                  ticker and bot price engine. No API key required.</div>
-              </div>
-              <div class="source-status active"><span class="status-dot-inline"></span>Live</div>
+            <div class="trading-hint">Generate keys at kraken.com → Security → API. Enable: Query Funds, Create &amp; Modify Orders.</div>
+            <div class="conn-form-actions">
+              <button class="btn-run" id="connConnectBtn" style="min-width:140px;justify-content:center">Connect</button>
+              <button class="trading-change-keys-btn" id="connDisconnectBtn" style="display:none">Disconnect</button>
             </div>
           </div>
+
+          <!-- Account balances (shown when connected) -->
+          <div class="conn-balances" id="connBalances" style="display:none">
+            <div class="conn-balances-header">
+              Account Balances
+              <button class="trading-icon-btn" id="connBalanceRefreshBtn" title="Refresh">↺</button>
+            </div>
+            <div class="conn-balance-grid" id="connBalanceGrid">
+              <div class="trading-empty-hint">Loading…</div>
+            </div>
+          </div>
+
+          <!-- Future placeholder cards -->
+          <div class="conn-card conn-card-future">
+            <div class="conn-card-left">
+              <div class="conn-card-icon" style="opacity:.4">B</div>
+              <div class="conn-card-info">
+                <div class="conn-card-name" style="opacity:.5">Binance</div>
+                <div class="conn-card-desc" style="opacity:.4">Coming soon — connect your Binance account for additional trading pairs.</div>
+              </div>
+            </div>
+            <div class="conn-card-right">
+              <span class="source-status" style="opacity:.4">Coming soon</span>
+            </div>
+          </div>
+
+          <div class="conn-card conn-card-future">
+            <div class="conn-card-left">
+              <div class="conn-card-icon" style="opacity:.4">C</div>
+              <div class="conn-card-info">
+                <div class="conn-card-name" style="opacity:.5">Coinbase Advanced</div>
+                <div class="conn-card-desc" style="opacity:.4">Coming soon — connect your Coinbase Advanced Trade account.</div>
+              </div>
+            </div>
+            <div class="conn-card-right">
+              <span class="source-status" style="opacity:.4">Coming soon</span>
+            </div>
+          </div>
+
         </div>
       </div>
+    </div><!-- /panel-connections -->
+
+    <!-- ══ DATA SOURCES PANEL ══════════════════════════════════════════════ -->
+    <div class="panel" id="panel-sources" role="tabpanel">
+      <!-- Rendered dynamically by datasources.js -->
     </div>
 
 
@@ -800,10 +1191,12 @@
   <script src="app.js?v=6"></script>
   <script src="resize.js?v=6"></script>
   <script src="backtest.js?v=6"></script>
-  <script src="creator.js?v=11"></script>
+  <script src="creator.js?v=16"></script>
   <script src="library.js?v=6"></script>
   <script src="bot.js?v=6"></script>
-  <script src="initiator.js?v=4"></script>
+  <script src="initiator.js?v=2"></script>
+  <script src="trading.js?v=3"></script>
+  <script src="portfolio.js?v=1"></script>
 
   <!-- Particle canvas -->
   <canvas id="particleCanvas" style="position:fixed;inset:0;pointer-events:none;z-index:0;opacity:.3"></canvas>
@@ -976,6 +1369,7 @@
     })();
   </script>
   <script src="workflow.js?v=1"></script>
+  <script src="datasources.js?v=8"></script>
 
 </body>
 

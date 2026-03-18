@@ -442,10 +442,11 @@ async function runBacktest() {
     btn1.disabled = btn2.disabled = true;
 
     try {
+        const exchange = localStorage.getItem('selectedExchange') || 'kraken';
         const res = await fetch(`${API}/api/backtest`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ pair: btPair, interval: btInterval, start, end, script }),
+            body: JSON.stringify({ pair: btPair, interval: btInterval, start, end, script, exchange }),
         });
         const data = await res.json();
 

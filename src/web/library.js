@@ -52,7 +52,6 @@ function renderLibrary(strategies) {
             <div class="lib-card-actions">
               <button class="btn-xs lib-load-btn" data-id="${s.id}" title="Load into Creator">Load</button>
               <button class="btn-xs lib-load-bt-btn" data-id="${s.id}" title="Send to Backtesting tab">Backtest</button>
-              <button class="btn-xs lib-bot-btn" data-id="${s.id}" title="Deploy to Bot">🤖 Deploy</button>
               <button class="btn-xs lib-del-btn" data-id="${s.id}" title="Delete strategy">✕</button>
             </div>
           </div>
@@ -78,9 +77,7 @@ function renderLibrary(strategies) {
     grid.querySelectorAll('.lib-load-bt-btn').forEach(btn => {
         btn.addEventListener('click', e => { e.stopPropagation(); loadStratToBacktest(btn.dataset.id); });
     });
-    grid.querySelectorAll('.lib-bot-btn').forEach(btn => {
-        btn.addEventListener('click', e => { e.stopPropagation(); deployStratToBot(btn.dataset.id); });
-    });
+
     grid.querySelectorAll('.lib-del-btn').forEach(btn => {
         btn.addEventListener('click', e => { e.stopPropagation(); deleteStrategy(btn.dataset.id); });
     });
@@ -340,31 +337,7 @@ async function loadStratToBacktest(id) {
     }
 }
 
-// ── Deploy strategy to bot ─────────────────────────────────────────────────────
-function deployStratToBot(id) {
-    const strat = _allStrategies.find(s => s.id === id);
-    if (!strat) { showToast('Strategy not found'); return; }
 
-    // Pre-fill bot panel
-    const sel = document.getElementById('botStrategySelect');
-    if (sel) {
-        // Add option if not there
-        let opt = sel.querySelector(`option[value="${id}"]`);
-        if (!opt) {
-            opt = document.createElement('option');
-            opt.value = id; opt.textContent = strat.name;
-            sel.appendChild(opt);
-        }
-        sel.value = id;
-    }
-    if (strat.pair) {
-        const pairSel = document.getElementById('botPairSelect');
-        if (pairSel) pairSel.value = strat.pair;
-    }
-
-    switchToPanel('bot');
-    showToast(`Strategy "${strat.name}" loaded into Bot — configure and start`);
-}
 
 // ── Delete strategy ───────────────────────────────────────────────────────────
 async function deleteStrategy(id) {
@@ -377,7 +350,6 @@ async function deleteStrategy(id) {
         if (d.error) throw new Error(d.error);
         _allStrategies = _allStrategies.filter(s => s.id !== id);
         renderLibrary(_allStrategies);
-        window.refreshBotStrategies?.();
         showToast('Strategy deleted');
     } catch (e) {
         showToast('Delete failed: ' + e.message);
@@ -420,7 +392,6 @@ document.querySelector('[data-panel="initiator"]')?.addEventListener('click', ()
 
 // ── Expose globally ───────────────────────────────────────────────────────────
 window.loadLibrary = loadLibrary;
-window.deployStratToBot = deployStratToBot;
 window.loadStratToCreator = loadStratToCreator;
 window.setStrategyName = setStrategyName;
 window.newStrategy = newStrategy;

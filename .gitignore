@@ -13,6 +13,7 @@ build/
 .venv/
 venv/
 env/
+BE/.venv/
 
 # Data & databases (large local files, not for VCS)
 data/
@@ -24,10 +25,13 @@ data/
 logs/
 *.log
 
-# Environment / secrets
+# Environment / secrets — never commit
 .env
-.env.*
 *.env
+# Keep example and mode-specific files
+!.env.example
+!.env.development
+!.env.production
 
 # macOS
 .DS_Store
@@ -40,5 +44,6 @@ logs/
 *.swp
 *.swo
 
-# Node (if ever used)
+# Node
 node_modules/
+FE/dist/

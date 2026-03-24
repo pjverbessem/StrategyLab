@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+*.egg-info/
+
+# Env files (use GCP Secret Manager or Cloud Run env vars instead)
+.env
+BE/.env
+**/.env
+
+# Data (SQLite DB — ephemeral in Cloud Run anyway)
+data/
+
+# Frontend
+FE/
+
+# Misc
+.git/
+.gitignore
+*.md
+.DS_Store
